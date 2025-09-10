@@ -1,0 +1,221 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.student.mapper.StudentRegistrationMapper">
+
+    <resultMap id="StudentListResultMap" type="edu.qhjy.student.vo.StudentListVO">
+<!--        <id column="ksbs" property="ksbs"/>-->
+        <result column="ksh" property="ksh"/>
+        <result column="xm" property="xm"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="jb" property="jb"/>
+        <result column="bjmc" property="bjmc"/>
+        <result column="xb" property="xb"/>
+        <result column="mz" property="mz"/>
+        <result column="shzt" property="shzt"/>
+        <result column="shyj" property="shyj"/>
+        <result column="xxmc" property="xxmc"/>
+        <result column="kjztmc" property="kjztmc"/>
+    </resultMap>
+
+    <select id="selectStudentList" parameterType="edu.qhjy.student.dto.registeration.AdminStudentQueryDTO"
+            resultMap="StudentListResultMap">
+        SELECT
+        ks.KJZTMC as kjztmc,
+        s.XXMC AS xxmc,
+#         ks.KSBS AS ksbs,
+        ks.KSH AS ksh,
+        ks.XM AS xm,
+        ks.SFZJH AS sfzjh,
+        b.jb AS jb,
+        ks.BJMC AS bjmc,
+        ks.XB AS xb,
+        ks.MZ AS mz,
+        ks.shzt AS shzt,
+        ks.SHYJ AS shyj
+        FROM
+        ksxx ks
+        LEFT JOIN bjxx b ON ks.BJBS = b.BJBS
+        LEFT JOIN xxjbxx s ON b.XXDM = s.XXDM
+        LEFT JOIN kqxx k ON s.KQDM = k.KQDM
+        <where>
+            <if test="ksh != null and ksh != ''">AND ks.KSH = #{ksh}</if>
+            <if test="sfzjh != null and sfzjh != ''">AND ks.SFZJH = #{sfzjh}</if>
+            <if test="xm != null and xm != ''">AND ks.XM LIKE CONCAT('%', #{xm}, '%')</if>
+            <if test="shzt != null and shzt != ''">AND ks.shzt = #{shzt}</if>
+            <if test="bjbs != null">AND b.BJBS = #{bjbs}</if>
+            <if test="xxdm != null and xxdm != ''">AND s.XXDM = #{xxdm}</if>
+            <if test="kqdm != null and kqdm != ''">AND s.KQDM = #{kqdm}</if>
+            <if test="szsdm != null and szsdm != ''">AND s.SZSDM = #{szsdm}</if>
+            <if test="jb != null and jb != ''">AND b.jb = #{jb}</if>
+        </where>
+        ORDER BY ks.CJSJ DESC
+    </select>
+
+    <resultMap id="StatisticsResultMap" type="edu.qhjy.student.vo.StatisticsVO">
+        <result column="jb" property="jb"/>
+        <result column="ssxzqhmc" property="ssxzqhmc"/>
+        <result column="kqmc" property="kqmc"/>
+        <result column="xxmc" property="xxmc"/>
+        <result column="zxrs" property="zxrs"/>
+        <result column="xxrs" property="xxrs"/>
+        <result column="lsrs" property="lsrs"/>
+        <result column="byrs" property="byrs"/>
+        <result column="zrs" property="zrs"/>
+    </resultMap>
+
+    <select id="selectStatistics" parameterType="edu.qhjy.student.dto.registeration.AdminStatisticsQueryDTO"
+            resultMap="StatisticsResultMap">
+        SELECT
+        b.jb AS jb,
+        k.SSXZQHMC AS ssxzqhmc,
+        k.KQMC AS kqmc,
+        s.XXMC AS xxmc,
+        s.XXDM AS xxdm,
+        SUM(CASE WHEN ks.KJZTMC = '正常在校' THEN 1 ELSE 0 END) AS zxrs,
+        SUM(CASE WHEN ks.KJZTMC = '休学' THEN 1 ELSE 0 END) AS xxrs,
+        SUM(CASE WHEN ks.KJZTMC = '流失' THEN 1 ELSE 0 END) AS lsrs,
+        SUM(CASE WHEN ks.KJZTMC = '毕业' THEN 1 ELSE 0 END) AS byrs,
+        COUNT(ks.KSH) AS zrs
+        FROM ksxx ks
+        LEFT JOIN bjxx b
+        ON ks.BJBS = b.BJBS
+        LEFT JOIN xxjbxx s
+        ON b.XXDM = s.XXDM
+        LEFT JOIN kqxx k
+        ON s.KQDM = k.KQDM
+        <where>
+            <if test="jb != null and jb != ''">
+                AND b.jb = #{jb}
+            </if>
+            <if test="szsdm != null and szsdm != ''">
+                AND k.SSXZQHDM = #{szsdm}
+            </if>
+            <if test="kqdm != null and kqdm != ''">
+                AND k.KQDM = #{kqdm}
+            </if>
+            <if test="xxdm != null and xxdm != ''">
+                AND s.XXDM = #{xxdm}
+            </if>
+        </where>
+        GROUP BY b.jb, k.SSXZQHMC, k.KQMC, s.XXMC, s.XXDM
+        ORDER BY CAST(s.XXDM AS UNSIGNED) ASC, b.jb ASC
+    </select>
+
+    <select id="findStudentInfoByKsh" resultType="edu.qhjy.student.domain.Ksxx">
+        SELECT *
+        FROM ksxx
+        WHERE KSH = #{ksh}
+    </select>
+
+    <select id="findGuardianInfoByKsh" resultType="edu.qhjy.student.domain.Jhrxx">
+        SELECT *
+        FROM jhrxx
+        WHERE KSH = #{ksh}
+    </select>
+
+    <select id="findAcademicHistoryByKsh" resultType="edu.qhjy.student.domain.Xlxx">
+        SELECT *
+        FROM xlxx
+        WHERE KSH = #{ksh}
+    </select>
+
+    <select id="existsByKsh" resultType="int">
+        SELECT count(1)
+        FROM ksxx
+        WHERE KSH = #{ksh}
+    </select>
+
+
+    <insert id="insertStudentInfo" parameterType="edu.qhjy.student.domain.Ksxx" useGeneratedKeys="true"
+            keyProperty="ksh">
+        INSERT INTO ksxx (ksh, scsblhdqmc, scsblhdsmc, scsblhdxmc, sfzjlxmc,
+                          jtxxdzqmc, jtxxdzsmc, jtxxdzxmc,
+                          yhjszqmc, yhjszsmc, yhjszxmc,
+                          xjh, xm, xb, mz, csrq, sfzjh,
+                          szqmc, szsmc, szxmc,
+                          qrxzsj, zpdz, yddh, xxmc, bjmc, bjbs, kjydjlbs)
+        VALUES (#{ksh}, #{scsblhdqmc}, #{scsblhdsmc}, #{scsblhdxmc}, #{sfzjlxmc},
+                #{jtxxdzqmc}, #{jtxxdzsmc}, #{jtxxdzxmc},
+                #{yhjszqmc}, #{yhjszsmc}, #{yhjszxmc},
+                #{xjh}, #{xm}, #{xb}, #{mz}, #{csrq}, #{sfzjh},
+                #{szqmc}, #{szsmc}, #{szxmc},
+                #{qrxzsj}, #{zpdz}, #{yddh}, #{xxmc}, #{bjmc}, #{bjbs}, #{kjydjlbs})
+    </insert>
+
+    <insert id="insertGuardians">
+        INSERT INTO jhrxx (KSH, GX, XM, SFZJH, SZQMC, SZSMC, SZXMC,MZ, YDDH, GZDWMC, GZDWZW)
+        VALUES
+        <foreach collection="guardians" item="item" separator=",">
+            (#{item.ksh}, #{item.gx}, #{item.xm}, #{item.sfzjh},#{item.szqmc},#{item.szsmc},#{item.szxmc}, #{item.mz},
+            #{item.yddh}, #{item.gzdwmc},
+            #{item.gzdwzw})
+        </foreach>
+    </insert>
+
+    <insert id="insertAcademicHistories">
+        INSERT INTO xlxx (KSH, XL, KSRQ, JZRQ, XXMC, ZMRXM, ZMRZW, ZMRDW)
+        VALUES
+        <foreach collection="academicHistories" item="item" separator=",">
+            (#{item.ksh}, #{item.xl}, #{item.ksrq}, #{item.jzrq}, #{item.xxmc}, #{item.zmrxm}, #{item.zmrzw},
+            #{item.zmrdw})
+        </foreach>
+    </insert>
+
+
+    <update id="updateStudentInfo" parameterType="edu.qhjy.student.domain.Ksxx">
+        UPDATE ksxx
+        <set>
+            <if test="xjh != null">xjh = #{xjh},</if>
+            <if test="xm != null">xm = #{xm},</if>
+            <if test="xb != null">xb = #{xb},</if>
+            <if test="mz != null">mz = #{mz},</if>
+            <if test="csrq != null">csrq = #{csrq},</if>
+            <if test="sfzjh != null">sfzjh = #{sfzjh},</if>
+            <if test="xxmc != null">xxmc = #{xxmc},</if>
+            <if test="bjmc != null">bjmc = #{bjmc},</if>
+            <if test="yddh != null">yddh = #{yddh},</if>
+            <if test="shzt != null">shzt = #{shzt},</if>
+            <if test="scsblhdqmc != null">scsblhdqmc = #{scsblhdqmc},</if>
+            <if test="scsblhdsmc != null">scsblhdsmc = #{scsblhdsmc},</if>
+            <if test="scsblhdxmc != null">scsblhdxmc = #{scsblhdxmc},</if>
+            <if test="sfzjlxmc != null">sfzjlxmc = #{sfzjlxmc},</if>
+            <if test="jtxxdzqmc != null">jtxxdzqmc = #{jtxxdzqmc},</if>
+            <if test="jtxxdzsmc != null">jtxxdzsmc = #{jtxxdzsmc},</if>
+            <if test="jtxxdzxmc != null">jtxxdzxmc = #{jtxxdzxmc},</if>
+            <if test="yhjszqmc != null">yhjszqmc = #{yhjszqmc},</if>
+            <if test="yhjszsmc != null">yhjszsmc = #{yhjszsmc},</if>
+            <if test="yhjszxmc != null">yhjszxmc = #{yhjszxmc},</if>
+            <if test="szqmc != null">szqmc = #{szqmc},</if>
+            <if test="szsmc != null">szsmc = #{szsmc},</if>
+            <if test="szxmc != null">szxmc = #{szxmc},</if>
+            <if test="qrxzsj != null">qrxzsj = #{qrxzsj},</if>
+            <if test="zpdz != null">zpdz = #{zpdz},</if>
+            <if test="bjbs != null">bjbs = #{bjbs},</if>
+            <if test="mzyyskyz != null">mzyyskyz = #{mzyyskyz},</if>
+            <if test="ysyz != null">ysyz = #{ysyz},</if>
+            <if test="shyj != null">shyj = #{shyj},</if>
+            <if test="shzt != null">shzt = #{shzt},</if>
+            <if test="shrxm != null">shrxm = #{shrxm},</if>
+            <if test="shsj != null">shsj = #{shsj},</if>
+        </set>
+        WHERE ksh = #{ksh}
+    </update>
+
+    <delete id="deleteGuardiansByKsh">
+        DELETE
+        FROM jhrxx
+        WHERE KSH = #{ksh}
+    </delete>
+
+    <delete id="deleteAcademicHistoriesByKsh">
+        DELETE
+        FROM xlxx
+        WHERE KSH = #{ksh}
+    </delete>
+
+    <delete id="deleteStudentByKsh">
+        DELETE
+        FROM ksxx
+        WHERE KSH = #{ksh}
+    </delete>
+
+</mapper>

@@ -1,0 +1,16 @@
+server:
+  port: 10005
+  tomcat:
+    threads:
+      # 将最大线程数从默认的200调高。我们可以先尝试一个更高的值，例如800
+      max: 800
+    # 同样调高连接等待队列的长度，以应对瞬时高峰
+    accept-count: 1000
+spring:
+  application:
+    name: student-affair-server
+  profiles:
+    active: dev
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml

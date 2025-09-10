@@ -1,0 +1,634 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.statuschange.mapper.StatusChangeMapper">
+
+
+    <resultMap id="basicInfo" type="edu.qhjy.statuschange.vo.StudentBasicInfoVO">
+        <result column="xm" property="xm"/>
+        <result column="csrq" property="csrq"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="xxmc" property="xxmc"/>
+        <result column="bjmc" property="bjmc"/>
+        <result column="jdnj" property="jdnj"/>
+        <result column="zbmc" property="zbmc"/>
+        <result column="mz" property="mz"/>
+        <result column="xb" property="xb"/>
+    </resultMap>
+
+    <select id="getBasicInfoByKsh" parameterType="java.lang.String" resultMap="basicInfo">
+        SELECT ks.xm,                                     -- 姓名
+               ks.xb,                                     -- 性别
+               ks.csrq,                                   -- 出生日期
+               ks.sfzjh,                                  -- 身份证号
+               ks.mz,                                     -- 民族
+               ks.xxmc,                                   -- 学校名称
+               ks.bjmc,                                   -- 班级名称
+               concat(kq.SSXZQHMC, ' ', kq.KQMC) as zbmc, -- 招办名称
+               ks.JB AS jdnj
+        FROM ksxx ks
+                 LEFT JOIN
+             xxjbxx xx ON ks.xxmc = xx.xxmc
+                 LEFT JOIN
+             kqxx kq ON xx.KQDM = kq.KQDM
+        WHERE ks.ksh = #{ksh}
+    </select>
+
+
+    <resultMap id="LateRegistrationListResultMap" type="edu.qhjy.statuschange.vo.LateRegistrationListVO">
+        <id     column="kjydjlbs" property="kjydjlbs"/>
+        <result column="ksh"    property="ksh"/>
+        <result column="xm"     property="xm"/>
+        <result column="sfzjh"  property="sfzjh"/>
+        <result column="jb"   property="jb"/>
+        <result column="bjmc"   property="bjmc"/>
+        <result column="blsj"   property="blsj"/>
+        <result column="blxx"   property="blxx"/>
+        <result column="shzt"   property="shzt"/>
+        <result column="shyj"   property="shyj"/>
+        <result column="zbmc" property="zbmc"/>
+        <result column="mz" property="mz"/>
+        <result column="xb" property="xb"/>
+    </resultMap>
+
+    <!-- 【新增】查询新生补录列表 -->
+    <select id="selectLateRegistrationList" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO" resultMap="LateRegistrationListResultMap">
+        SELECT
+        j.KJYDJLBS AS kjydjlbs,
+        j.KSH      AS ksh,
+        j.XM       AS xm,
+        j.SFZJH    AS sfzjh,
+        ks.jb     AS jb,
+        ks.BJMC    AS bjmc,
+        j.CJSJ     AS blsj,
+        ks.XXMC    AS blxx,
+        j.SHZT     AS shzt,
+        j.SHYJ     AS shyj,
+        j.ZBMC     AS zbmc,
+        j.MZ       AS mz,
+        j.XB       AS xb
+        FROM
+        kjydjl j
+        -- 使用 INNER JOIN 关联 ksxx 表，确保只查询出补录的学生
+        INNER JOIN ksxx ks ON j.KJYDJLBS = ks.KJYDJLBS
+        <where>
+            -- 核心筛选：只查询类型为“新生补录”的记录
+            j.KJYDLXBS = 6
+
+            <!-- 其他通用筛选条件 -->
+            <if test="ksh != null and ksh != ''"> AND j.KSH = #{ksh} </if>
+            <if test="sfzjh != null and sfzjh != ''"> AND j.SFZJH = #{sfzjh} </if>
+            <if test="xm != null and xm != ''"> AND j.XM LIKE CONCAT('%', #{xm}, '%') </if>
+        </where>
+        ORDER BY j.CJSJ DESC
+    </select>
+
+    <resultMap id="LeaveAuditListResultMap" type="edu.qhjy.statuschange.vo.LeaveAuditListVO">
+        <id column="kjydjlbs" property="kjydjlbs"/>
+        <result column="ksh" property="ksh"/>
+        <result column="xm" property="xm"/>
+        <result column="xb" property="xb"/>
+        <result column="mz" property="mz"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="jb" property="jb"/>
+        <result column="bjmc" property="bjmc"/>
+        <result column="xxrq" property="xxrq"/>
+        <result column="xxsc" property="xxsc"/>
+        <result column="xxyy" property="xxyy"/>
+        <result column="tjsj" property="tjsj"/>
+        <result column="shzt" property="shzt"/>
+        <result column="shyj" property="shyj"/>
+        <result column="xxmc" property="xxmc"/>
+        <result column="jdnj" property="jdnj"/>
+        <result column="zbmc" property="zbmc"/>
+        <result column="yyzmwjdz" property="yyzmwjdz"/>
+    </resultMap>
+
+    <!-- 查询休学审核列表 -->
+    <select id="getSuspension" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO"
+            resultMap="LeaveAuditListResultMap">
+        SELECT
+        j.KJYDJLBS AS kjydjlbs,
+        j.KSH AS ksh,
+        j.XM AS xm,
+        j.XB AS xb,
+        j.MZ AS mz,
+        j.SFZJH AS sfzjh,
+        j.CJSJ AS tjsj,
+        j.SHZT AS shzt,
+        j.SHYJ AS shyj,
+        j.ZBMC AS zbmc,
+
+        -- 从 xfxjl (休学分表) 获取
+        x.XXYY AS xxyy,
+        x.XXRQ AS xxrq,
+        x.JDNJ AS jdnj,
+        x.XXMC AS xxmc,
+        x.YYZMWJDZ AS yyzmwjdz,
+        x.XXSC AS xxsc,
+        ks.jb AS jb,
+        ks.BJMC AS bjmc
+
+        FROM
+        kjydjl j
+        -- 关联休学详情表
+        LEFT JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
+        -- 为了获取级别和班级名称，需要关联学生表和班级表
+        LEFT JOIN ksxx ks ON j.KSH = ks.KSH
+        WHERE
+        -- 筛选出所有休学申请
+        j.KJYDLXBS = 1
+        AND x.XFXBJ = 0
+        <if test="ksh != null and ksh != ''">
+            AND j.KSH = #{ksh}
+        </if>
+        <if test="xm != null and xm != ''">
+            AND j.XM LIKE CONCAT('%', #{xm}, '%')
+        </if>
+        <if test="sfzjh != null and sfzjh != ''">
+            AND j.SFZJH = #{sfzjh}
+        </if>
+        ORDER BY
+        j.CJSJ DESC
+    </select>
+
+    <select id="getLatestXfxjlByKjydjlbs" parameterType="java.lang.String" resultType="edu.qhjy.statuschange.domain.Xfxjl">
+        SELECT *
+        FROM xfxjl xfx
+        LEFT JOIN kjydjl jd ON xfx.KJYDJLBS = jd.KJYDJLBS
+        WHERE jd.KSH = #{ksh}
+        ORDER BY KJYDLXBS DESC
+        LIMIT 1
+    </select>
+
+    <resultMap id="ReturnAuditListResultMap" type="edu.qhjy.statuschange.vo.ReturnAuditListVO">
+        <result column="kjydjlbs" property="kjydjlbs"/>
+        <result column="ksh" property="ksh"/>
+        <result column="xm" property="xm"/>
+        <result column="xb" property="xb"/>
+        <result column="mz" property="mz"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="zbmc" property="zbmc"/>
+        <result column="fxlx" property="fxlx"/>
+        <result column="xxyy" property="xxyy"/>
+        <result column="xxrq" property="xxrq"/>
+        <result column="fxrq" property="fxrq"/>
+        <result column="xxsc" property="xxsc"/>
+        <result column="fxxjh" property="fxxjh"/>
+        <result column="xbjmc" property="xbjmc"/>
+        <result column="xxmc" property="xxmc"/>
+        <result column="jdnj" property="jdnj"/>
+        <result column="xjdnj" property="xjdnj"/>
+        <result column="bz" property="bz"/>
+        <result column="cjsj" property="cjsj"/>
+        <result column="shzt" property="shzt"/>
+        <result column="shyj" property="shyj"/>
+    </resultMap>
+
+    <select id="selectReturnList" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO"
+            resultMap="ReturnAuditListResultMap">
+        SELECT
+        j.KJYDJLBS AS kjydjlbs,
+        j.KSH      AS ksh,
+        j.XM       AS xm,
+        j.XB       AS xb,
+        j.MZ       AS mz,
+        j.SFZJH    AS sfzjh,
+        j.CJSJ     AS cjsj,
+        j.SHZT     AS shzt,
+        j.SHYJ     AS shyj,
+        j.ZBMC     AS zbmc,
+
+        x.XXMC     AS xxmc,   -- 休学名称
+        x.jdnj     AS jdnj,   -- 级别年级
+        x.XXYY     AS xxyy,   -- 休学原因
+        '复学'     AS fxlx,   -- 可以写死，也可以字典关联
+        x.XXRQ     AS xxrq,   -- 休学日期
+        x.FXRQ     AS fxrq,   -- 复学日期
+        x.XBJMC    AS xbjmc,   -- 新班级
+        x.XJDNJ     AS xjdnj,   -- 级别年级
+        CONCAT(
+        FLOOR(TIMESTAMPDIFF(MONTH, x.XXRQ, x.FXRQ) / 12), '年',
+        MOD(TIMESTAMPDIFF(MONTH, x.XXRQ, x.FXRQ), 12), '月'
+        ) AS xxsc,
+        x.FXXJH    AS fxxjh,  -- 复学学籍号
+        x.BZ       AS bz    -- 备注
+
+        FROM
+        kjydjl j
+        INNER JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
+        WHERE
+        j.KJYDLXBS = 2
+        AND x.XFXBJ = 1
+        <if test="ksh != null and ksh != ''">
+            AND j.KSH = #{ksh}
+        </if>
+        <if test="xm != null and xm != ''">
+            AND j.XM LIKE CONCAT('%', #{xm}, '%')
+        </if>
+        <if test="sfzjh != null and sfzjh != ''">
+            AND j.SFZJH = #{sfzjh}
+        </if>
+        ORDER BY
+        j.CJSJ DESC
+    </select>
+
+
+    <insert id="insertXfxjl" parameterType="edu.qhjy.statuschange.domain.Xfxjl">
+        INSERT INTO xfxjl
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kjydjlbs != null">KJYDJLBS,</if>
+            <if test="xfxbj != null">XFXBJ,</if>
+            <if test="xxyy != null">XXYY,</if>
+            <if test="xxrq != null">XXRQ,</if>
+            <if test="xxsc != null">XXSC,</if>
+            <if test="xxmc != null">XXMC,</if>
+            <if test="jdnj != null">JDNJ,</if>
+            <if test="fxxjh != null">FXXJH,</if>
+            <if test="fxrq != null">FXRQ,</if>
+            <if test="xbjmc != null">XBJMC,</if>
+            <if test="xjdnj != null">XJDNJ,</if>
+            <if test="bz != null">BZ,</if>
+            <if test="yyzmwjdz != null">YYZMWJDZ,</if>
+            <if test="cjrxm != null">CJRXM,</if>
+            <if test="cjrgzrym != null">CJRGZRYM,</if>
+            <if test="cjsj != null">CJSJ,</if>
+            <if test="gxrxm != null">GXRXM,</if>
+            <if test="gxrgzrym != null">GXRGZRYM,</if>
+            <if test="gxsj != null">GXSJ,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="kjydjlbs != null">#{kjydjlbs},</if>
+            <if test="xfxbj != null">#{xfxbj},</if>
+            <if test="xxyy != null">#{xxyy},</if>
+            <if test="xxrq != null">#{xxrq},</if>
+            <if test="xxsc != null">#{xxsc},</if>
+            <if test="xxmc != null">#{xxmc},</if>
+            <if test="jdnj != null">#{jdnj},</if>
+            <if test="fxxjh != null">#{fxxjh},</if>
+            <if test="fxrq != null">#{fxrq},</if>
+            <if test="xbjmc != null">#{xbjmc},</if>
+            <if test="xjdnj != null">#{xjdnj},</if>
+            <if test="bz != null">#{bz},</if>
+            <if test="yyzmwjdz != null">#{yyzmwjdz},</if>
+            <if test="cjrxm != null">#{cjrxm},</if>
+            <if test="cjrgzrym != null">#{cjrgzrym},</if>
+            <if test="cjsj != null">#{cjsj},</if>
+            <if test="gxrxm != null">#{gxrxm},</if>
+            <if test="gxrgzrym != null">#{gxrgzrym},</if>
+            <if test="gxsj != null">#{gxsj},</if>
+        </trim>
+    </insert>
+
+    <resultMap id="TransferAuditListResultMap" type="edu.qhjy.statuschange.vo.TransferAuditListVO">
+        <id column="kjydjlbs" property="kjydjlbs"/>
+        <result column="scwjdz" property="scwjdz"/>
+        <result column="ksh" property="ksh"/>
+        <result column="xm" property="xm"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="jb" property="jb"/>
+        <result column="jdnj" property="jdnj"/>
+        <result column="yjdbj" property="yjdbj"/>
+        <result column="xxmc" property="xxmc"/>
+        <result column="yxxmc" property="yxxmc"/>
+        <result column="jdbj" property="jdbj"/>
+        <result column="zcsj" property="zcsj"/>
+        <result column="zcyy" property="zcyy"/>
+        <result column="shzt" property="shzt"/>
+        <result column="shyj" property="shyj"/>
+        <result column="tjsj" property="tjsj"/>
+        <result column="szqmc" property="zrsfmc"/>
+        <result column="szsmc" property="zrcsmc"/>
+        <result column="szxmc" property="zrqxmc"/>
+        <result column="zbmc" property="zbmc"/>
+        <result column="mz" property="mz"/>
+        <result column="xb" property="xb"/>
+    </resultMap>
+
+    <!-- 【新增】查询转学审核列表 -->
+    <select id="getTransfer" parameterType="map" resultMap="TransferAuditListResultMap">
+        SELECT
+        -- 从 kjydjl (总表) 获取
+        j.KJYDJLBS AS kjydjlbs,
+        j.KSH AS ksh,
+        j.XM AS xm,
+        j.SFZJH AS sfzjh,
+        j.SHZT AS shzt,
+        j.SHYJ AS shyj,
+        j.CJSJ AS tjsj,
+        j.ZBMC AS zbmc,
+        j.MZ AS mz,
+        j.XB AS xb,
+
+        -- 从 zxjl (转学分表) 获取
+        z.YXXMC AS yxxmc,  -- 原学校名称
+        z.XXMC AS xxmc,    -- 现学校名称
+        z.SZQMC as szqmc,  -- 所在省区名称
+        z.SZSMC as szsmc,  -- 所在省市名称
+        z.SZXMC as szxmc,  -- 所在县区名称
+        z.YJDBJ AS yjdbj,  -- 原就读班级
+        z.JDBJ AS jdbj,    -- 现就读班级
+        z.ZCYY AS zcyy,    -- 转学原因
+        z.JDNJ AS jdnj,    -- 级别年级
+        z.ZCSJ AS zcsj,    -- 转学时间
+        z.SCWJDZ AS scwjdz,-- 审查文件地址
+        ks.jb AS jb         -- 级别
+        FROM kjydjl j
+        INNER JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
+        LEFT JOIN ksxx ks ON j.KSH = ks.KSH
+        <where>
+            j.KJYDLXBS = 4
+            <if test="zxlx != null">
+                AND z.ZXLX = #{zxlx}
+            </if>
+            <if test="common.ksh != null and common.ksh != ''">
+                AND j.KSH = #{common.ksh}
+            </if>
+            <if test="common.xm != null and common.xm != ''">
+                AND j.XM LIKE CONCAT('%', #{common.xm}, '%')
+            </if>
+            <if test="common.sfzjh != null and common.sfzjh != ''">
+                AND j.SFZJH = #{common.sfzjh}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertZxjl" parameterType="edu.qhjy.statuschange.domain.Zxjl">
+        INSERT INTO zxjl
+            (kjydjlbs, zxlx, yxxmc, yjdbj, xxmc, jdbj, jdnj, zcsj, zcyy, scwjdz, SZSMC, SZQMC, SZXMC)
+        VALUES (#{kjydjlbs}, #{zxlx}, #{yxxmc}, #{yjdbj}, #{xxmc}, #{jdbj}, #{jdnj}, #{zcsj}, #{zcyy}, #{scwjdz}, #{szsmc}, #{szqmc}, #{szxmc})
+    </insert>
+
+    <resultMap id="AttritionListResultMap" type="edu.qhjy.statuschange.vo.AttritionListVO">
+        <id     column="kjydjlbs" property="kjydjlbs"/>
+        <result column="ksh"      property="ksh"/>
+        <result column="xm"       property="xm"/>
+        <result column="sfzjh"    property="sfzjh"/>
+        <result column="jb"     property="jb"/>
+        <result column="bjmc"     property="bjmc"/>
+        <result column="lsyy"     property="lsyy"/>
+        <result column="lssj"     property="lssj"/>
+        <result column="czsj"     property="czsj"/>
+        <result column="shzt"     property="shzt"/>
+        <result column="shyj"     property="shyj"/>
+        <result column="mz"       property="mz"/>
+        <result column="xb"       property="xb"/>
+        <result column="zbmc"     property="zbmc"/>
+    </resultMap>
+
+    <insert id="insertLsjl" parameterType="edu.qhjy.statuschange.domain.Lsjl">
+        INSERT INTO lsjl
+            (kjydjlbs, lsyy, lssj)
+        VALUES
+            (#{kjydjlbs}, #{lsyy}, #{lssj})
+    </insert>
+
+    <select id="selectAttritionList" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO" resultMap="AttritionListResultMap">
+        SELECT
+        j.KJYDJLBS AS kjydjlbs,
+        j.KSH      AS ksh,
+        j.XM       AS xm,
+        j.SFZJH    AS sfzjh,
+        ks.jb     AS jb,
+        ks.BJMC     AS bjmc,
+        l.LSYY     AS lsyy,
+        l.LSSJ     AS lssj,
+        j.CJSJ     AS czsj,
+        j.SHZT     AS shzt,
+        j.SHYJ     AS shyj,
+        j.mz       AS mz,
+        j.xb       AS xb,
+        j.zbmc     AS zbmc
+        FROM
+        kjydjl j
+        INNER JOIN lsjl l ON j.KJYDJLBS = l.KJYDJLBS
+        LEFT JOIN ksxx ks ON j.KSH = ks.KSH
+        WHERE
+        -- 筛选出所有流失申请
+        j.KJYDLXBS = 5
+        <if test="ksh != null and ksh != ''">
+            AND j.KSH = #{ksh}
+        </if>
+        <if test="xm != null and xm != ''">
+            AND j.XM LIKE CONCAT('%', #{xm}, '%')
+        </if>
+        <if test="sfzjh != null and sfzjh != ''">
+            AND j.SFZJH = #{sfzjh}
+        </if>
+        ORDER BY
+        j.CJSJ DESC
+    </select>
+
+    <resultMap id="AbroadListResultMap" type="edu.qhjy.statuschange.vo.AbroadListVO">
+        <id     column="cgdjbs" property="cgdjbs"/>
+        <result column="ksh"    property="ksh"/>
+        <result column="xm"     property="xm"/>
+        <result column="sfzjh"  property="sfzjh"/>
+        <result column="xxmc"   property="xxmc"/>
+        <result column="cggj"   property="cggj"/>
+        <result column="clrxm"  property="clrxm"/>
+        <result column="djsj"   property="djsj"/>
+        <result column="cgyy"   property="cgyy"/>
+        <result column="bz"     property="bz"/>
+    </resultMap>
+
+    <select id="selectAbroadList" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO" resultMap="AbroadListResultMap">
+        SELECT
+        c.CGDJBS  AS cgdjbs,
+        j.KJYDJLBS AS kjydjlbs,
+        j.KSH      AS ksh,
+        j.XM       AS xm,
+        j.SFZJH    AS sfzjh,
+        c.XXMC    AS xxmc,
+        c.CGGJ     AS cggj,
+        c.CLRXM    AS clrxm,
+        c.DJSJ     AS djsj,
+        c.CGYY     AS cgyy,
+        c.BZ       AS bz
+        FROM
+        kjydjl j
+        INNER JOIN cgdj c ON j.KJYDJLBS = c.KJYDJLBS
+        WHERE
+        j.KJYDLXBS = 7
+        <if test="ksh != null and ksh != ''">
+            AND j.KSH = #{ksh}
+        </if>
+        <if test="xm != null and xm != ''">
+            AND j.XM LIKE CONCAT('%', #{xm}, '%')
+        </if>
+        <if test="sfzjh != null and sfzjh != ''">
+            AND j.SFZJH = #{sfzjh}
+        </if>
+    </select>
+
+    <insert id="insertAbroadRegistration" parameterType="edu.qhjy.statuschange.domain.Cgdj">
+        INSERT INTO cgdj
+            (xxmc, cggj, clrxm, djsj, cgyy, bz, kjydjlbs)
+        VALUES
+            (#{xxmc}, #{cggj}, #{clrxm}, #{djsj}, #{cgyy}, #{bz}, #{kjydjlbs})
+    </insert>
+
+    <resultMap id="KeyPropertyChangeListResultMap" type="edu.qhjy.statuschange.vo.KeyPropertyChangeListVO">
+        <id column="kjydjlbs" property="kjydjlbs"/>
+        <result column="ggsxmc" property="ggsxmc"/>
+        <result column="ksh" property="ksh"/>
+        <result column="xm" property="xm"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="gqz" property="gqz"/>
+        <result column="ghz" property="ghz"/>
+        <result column="czsj" property="czsj"/>
+        <result column="shzt" property="shzt"/>
+        <result column="shyj" property="shyj"/>
+        <result column="zmwjdz" property="zmwjdz"/>
+        <result column="jb" property="jb"/>
+        <result column="bjmc" property="bjmc"/>
+        <result column="zbmc" property="zbmc"/>
+        <result column="mz" property="mz"/>
+        <result column="xb" property="xb"/>
+    </resultMap>
+
+    <insert id="insertKeyPropertyChange" parameterType="edu.qhjy.statuschange.domain.Xxbgjl">
+        INSERT INTO xxbgjl
+            (kjydjlbs, ggsxmc, gqz, ghz, zmwjdz)
+        VALUES
+            (#{kjydjlbs}, #{ggsxmc}, #{gqz}, #{ghz}, #{zmwjdz})
+    </insert>
+
+    <select id="selectKeyPropertyChangeList" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO" resultMap="KeyPropertyChangeListResultMap">
+        SELECT
+        j.KJYDJLBS AS kjydjlbs,
+        g.GGSXMC   AS ggsxmc,
+        j.KSH      AS ksh,
+        j.XM       AS xm,
+        j.SFZJH    AS sfzjh,
+        g.GQZ      AS gqz,
+        g.GHZ      AS ghz,
+        j.CJSJ     AS czsj,
+        j.SHZT     AS shzt,
+        j.SHYJ     AS shyj,
+        j.ZBMC     AS zbmc,
+        j.MZ       AS mz,
+        j.XB       AS xb,
+        g.ZMWJDZ   AS zmwjdz,
+        ks.jb     AS jb,
+        ks.BJMC    AS bjmc
+        FROM
+        kjydjl j
+        INNER JOIN xxbgjl g ON j.KJYDJLBS = g.KJYDJLBS
+        LEFT JOIN ksxx ks ON j.KSH = ks.KSH
+        WHERE
+        j.KJYDLXBS = 3
+        <if test="ksh != null and ksh != ''">
+            AND j.KSH = #{ksh}
+        </if>
+        <if test="xm != null and xm != ''">
+            AND j.XM LIKE CONCAT('%', #{xm}, '%')
+        </if>
+        <if test="sfzjh != null and sfzjh != ''">
+            AND j.SFZJH = #{sfzjh}
+        </if>
+        ORDER BY
+        j.CJSJ DESC
+    </select>
+
+    <insert id="insertKjydjl" parameterType="edu.qhjy.statuschange.domain.Kjydjl" useGeneratedKeys="true"
+            keyProperty="kjydjlbs">
+        INSERT INTO kjydjl (KSH, XM, XB, MZ, SFZJH, ZBMC, KJYDLXBS, CJSJ, SHZT, SHJD)
+        VALUES (#{ksh}, #{xm}, #{xb}, #{mz}, #{sfzjh}, #{zbmc}, #{kjydlxbs}, NOW(), #{shzt}, #{shjd})
+    </insert>
+
+    <select id="getKjydlxbsByKjydjlbs" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT KJYDLXBS
+        FROM kjydjl
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </select>
+
+    <delete id="deleteXfxjlByKjydjlbs" parameterType="java.lang.Long">
+        DELETE FROM xfxjl
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </delete>
+
+    <delete id="deleteZxjlByKjydjlbs" parameterType="java.lang.Long">
+        DELETE FROM zxjl
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </delete>
+
+    <delete id="deleteLsjlByKjydjlbs" parameterType="java.lang.Long">
+        DELETE FROM lsjl
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </delete>
+
+    <delete id="deleteCgdjByKjydjlbs" parameterType="java.lang.Long">
+        DELETE FROM cgdj
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </delete>
+
+    <delete id="deleteXxbgjlByKjydjlbs" parameterType="java.lang.Long">
+        DELETE FROM xxbgjl
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </delete>
+
+    <delete id="deleteKjydjlById" parameterType="java.lang.Long">
+        DELETE FROM kjydjl
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </delete>
+
+    <resultMap id="InformationChangeSummaryResultMap" type="edu.qhjy.statuschange.vo.InformationChangeSummaryVO">
+        <result column="ksh" property="ksh"/>
+        <result column="xm" property="xm"/>
+        <result column="sfzjh" property="sfzjh"/>
+        <result column="jb" property="jb"/>
+        <result column="bjmc" property="bjmc"/>
+        <result column="keyPropertyChangeCount" property="keyPropertyChangeCount"/>
+        <result column="returnSchoolCount" property="returnSchoolCount"/>
+        <result column="leaveSchoolCount" property="leaveSchoolCount"/>
+        <result column="inProvinceInCount" property="inProvinceInCount"/>
+        <result column="inProvinceOutCount" property="inProvinceOutCount"/>
+        <result column="outOfProvinceInCount" property="outOfProvinceInCount"/>
+        <result column="outOfProvinceOutCount" property="outOfProvinceOutCount"/>
+    </resultMap>
+
+    <select id="selectInformationChangeSummary" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO" resultMap="InformationChangeSummaryResultMap">
+        SELECT
+        ks.KSH AS ksh,
+        ks.XM AS xm,
+        ks.SFZJH AS sfzjh,
+        ks.jb AS jb,
+        ks.BJMC AS bjmc,
+
+        -- 使用 COUNT 和 CASE WHEN 进行条件计数
+        COUNT(CASE WHEN j.KJYDLXBS = 3 THEN 1 END) AS keyPropertyChangeCount, -- 关键信息变更
+        COUNT(CASE WHEN j.KJYDLXBS = 2 AND x.XFXBJ = 1 THEN 1 END) AS returnSchoolCount, -- 复学
+        COUNT(CASE WHEN j.KJYDLXBS = 1 AND x.XFXBJ = 0 THEN 1 END) AS leaveSchoolCount,  -- 休学
+
+        -- 统计不同子类型的转学次数
+        COUNT(CASE WHEN z.ZXLX = 2 THEN 1 END) AS inProvinceInCount,    -- 省内转入
+        COUNT(CASE WHEN z.ZXLX = 1 THEN 1 END) AS inProvinceOutCount,   -- 省内转出
+        COUNT(CASE WHEN z.ZXLX = 4 THEN 1 END) AS outOfProvinceInCount, -- 省外转入
+        COUNT(CASE WHEN z.ZXLX = 3 THEN 1 END) AS outOfProvinceOutCount -- 转出省外
+
+        FROM
+        ksxx ks
+        -- LEFT JOIN on 异动总表
+        LEFT JOIN kjydjl j ON ks.KSH = j.KSH
+        -- LEFT JOIN on 休复学详情表
+        LEFT JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
+        -- LEFT JOIN on 转学详情表
+        LEFT JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
+        <where>
+            <if test="ksh != null and ksh != ''">
+                AND ks.KSH = #{ksh}
+            </if>
+            <if test="xm != null and xm != ''">
+                AND ks.XM LIKE CONCAT('%', #{xm}, '%')
+            </if>
+            <if test="sfzjh != null and sfzjh != ''">
+                AND ks.SFZJH = #{sfzjh}
+            </if>
+        </where>
+        -- 按学生进行分组
+        GROUP BY
+        ks.KSH
+        ORDER BY
+        ks.KSH
+    </select>
+
+</mapper>
