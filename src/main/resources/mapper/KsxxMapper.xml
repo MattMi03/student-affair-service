@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.statuschange.mapper.KsxxMapper">
+
+
+    <resultMap id="StudentLocationResultMap" type="edu.qhjy.statuschange.dto.audit.StudentLocationDTO">
+        <result property="schoolCode" column="schoolCode"/>
+    </resultMap>
+
+    <select id="findStudentLocationByKsh" resultMap="StudentLocationResultMap">
+        SELECT x.XXDM AS schoolCode
+        FROM ksxx s
+                 LEFT JOIN
+             xxjbxx x ON s.XXMC = x.XXMC -- 关联学校表
+        WHERE s.KSH = #{ksh}
+        LIMIT 1
+    </select>
+
+    <update id="updateStudentStatus">
+        UPDATE ksxx
+        SET KJZTMC = #{status}
+        WHERE KSH = #{ksh}
+    </update>
+
+    <update id="updateStudentResumptionInfo">
+        UPDATE ksxx
+        SET KJZTMC = '正常在校',
+            BJMC   = NULL,
+            JB     = #{newGradeLevel}, -- 假设JB是年级
+            BJBS   = NULL
+        WHERE KSH = #{ksh}
+    </update>
+
+    <update id="updateStudentSchoolInfo">
+        UPDATE ksxx
+        SET XXMC = #{newSchoolName},
+            BJMC = NULL,
+            BJBs = NULL,
+            JB   = #{newGradeLevel}
+        WHERE KSH = #{ksh}
+    </update>
+
+    <update id="updateStudentKeyProperty">
+        UPDATE ksxx
+        <set>
+            <choose>
+                <when test="propertyName == '姓名'">XM = #{newValue},</when>
+                <when test="propertyName == '性别'">XB = #{newValue},</when>
+                <when test="propertyName == '民族'">MZ = #{newValue},</when>
+                <when test="propertyName == '身份证件号'">SFZJH = #{newValue},</when>
+            </choose>
+        </set>
+        WHERE KSH = #{ksh}
+    </update>
+
+</mapper>

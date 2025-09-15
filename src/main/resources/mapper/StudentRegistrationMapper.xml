@@ -2,7 +2,7 @@
 <mapper namespace="edu.qhjy.student.mapper.StudentRegistrationMapper">
 
     <resultMap id="StudentListResultMap" type="edu.qhjy.student.vo.StudentListVO">
-<!--        <id column="ksbs" property="ksbs"/>-->
+        <!--        <id column="ksbs" property="ksbs"/>-->
         <result column="ksh" property="ksh"/>
         <result column="xm" property="xm"/>
         <result column="sfzjh" property="sfzjh"/>
@@ -21,7 +21,7 @@
         SELECT
         ks.KJZTMC as kjztmc,
         s.XXMC AS xxmc,
-#         ks.KSBS AS ksbs,
+        <!-- ks.KSBS AS ksbs, -->
         ks.KSH AS ksh,
         ks.XM AS xm,
         ks.SFZJH AS sfzjh,
@@ -97,10 +97,53 @@
             </if>
         </where>
         GROUP BY b.jb, k.SSXZQHMC, k.KQMC, s.XXMC, s.XXDM
-        ORDER BY CAST(s.XXDM AS UNSIGNED) ASC, b.jb ASC
+        ORDER BY s.XXDM ASC, b.jb ASC
     </select>
 
-    <select id="findStudentInfoByKsh" resultType="edu.qhjy.student.domain.Ksxx">
+    <resultMap id="ksxxResultMap" type="edu.qhjy.student.domain.Ksxx">
+        <id column="KSH" property="ksh"/>
+        <result column="XJH" property="xjh"/>
+        <result column="XM" property="xm"/>
+        <result column="XB" property="xb"/>
+        <result column="MZ" property="mz"/>
+        <result column="CSRQ" property="csrq"/>
+        <result column="SCSBLHDQMC" property="scsblhdqmc"/>
+        <result column="SCSBLHDSMC" property="scsblhdsmc"/>
+        <result column="SCSBLHDXMC" property="scsblhdxmc"/>
+        <result column="SFZJLXMC" property="sfzjlxmc"/>
+        <result column="SFZJH" property="sfzjh"/>
+        <result column="JTXXDZQMC" property="jtxxdzqmc"/>
+        <result column="JTXXDZSMC" property="jtxxdzsmc"/>
+        <result column="JTXXDZXMC" property="jtxxdzxmc"/>
+        <result column="SZQMC" property="szqmc"/>
+        <result column="SZSMC" property="szsmc"/>
+        <result column="SZXMC" property="szxmc"/>
+        <result column="YHJSZQMC" property="yhjszqmc"/>
+        <result column="YHJSZSMC" property="yhjszsmc"/>
+        <result column="YHJSZXMC" property="yhjszxmc"/>
+        <result column="QRXZSJ" property="qrxzsj"/>
+        <result column="ZPDZ" property="zpdz"/>
+        <result column="YDDH" property="yddh"/>
+        <result column="XXMC" property="xxmc"/>
+        <result column="BJMC" property="bjmc"/>
+        <result column="BJBS" property="bjbs"/>
+        <result column="KJYDJLBS" property="kjydjlbs"/>
+        <result column="HKLX" property="hklx"/>
+
+        <!-- 新增扫描件字段 -->
+        <result column="KS_SFZ_ZM" property="ksSfzZm"/>
+        <result column="KS_SFZ_FM" property="ksSfzFm"/>
+        <result column="FQ_HKB_SY" property="fqHkbSy"/>
+        <result column="FQ_HKB_BN" property="fqHkbBn"/>
+        <result column="JHR_HKB_SY" property="jhrHkbSy"/>
+        <result column="JHR_HKB_BN" property="jhrHkbBn"/>
+        <result column="KS_HKB_SY" property="ksHkbSy"/>
+        <result column="KS_HKB_BN" property="ksHkbBn"/>
+        <result column="MQ_HKB_SY" property="mqHkbSy"/>
+        <result column="MQ_HKB_BN" property="mqHkbBn"/>
+    </resultMap>
+
+    <select id="findStudentInfoByKsh" resultMap="ksxxResultMap">
         SELECT *
         FROM ksxx
         WHERE KSH = #{ksh}
@@ -126,19 +169,43 @@
 
 
     <insert id="insertStudentInfo" parameterType="edu.qhjy.student.domain.Ksxx" useGeneratedKeys="true"
-            keyProperty="ksh">
-        INSERT INTO ksxx (ksh, scsblhdqmc, scsblhdsmc, scsblhdxmc, sfzjlxmc,
-                          jtxxdzqmc, jtxxdzsmc, jtxxdzxmc,
-                          yhjszqmc, yhjszsmc, yhjszxmc,
-                          xjh, xm, xb, mz, csrq, sfzjh,
-                          szqmc, szsmc, szxmc,
-                          qrxzsj, zpdz, yddh, xxmc, bjmc, bjbs, kjydjlbs)
-        VALUES (#{ksh}, #{scsblhdqmc}, #{scsblhdsmc}, #{scsblhdxmc}, #{sfzjlxmc},
+            keyProperty="ksbs">
+        INSERT INTO ksxx (KSH, XJH, XM, XB, MZ, CSRQ,
+                          SCSBLHDQMC, SCSBLHDSMC, SCSBLHDXMC, SFZJLXMC, SFZJH,
+                          JTXXDZQMC, JTXXDZSMC, JTXXDZXMC,
+                          SZQMC, SZSMC, SZXMC, KQMC,
+                          YHJSZQMC, YHJSZSMC, YHJSZXMC,
+                          QRXZSJ, QRYY, ZQZH, QYZH,
+                          ZPDZ, RXLB, ZZMM, KSLX,
+                          YDDH, YSYZ, MZYYSKYZ,
+                          KJZTMC, XXMC, JB, BJBS, BJMC, RXND, BYND,
+                          SHJD, SHZT, SHSJ, SHRXM, SHYJ,
+                          CJRXM, CJRGZRYM,
+                          GXRXM, GXRGZRYM,
+                          KJYDJLBS, HKLX,
+                          KS_SFZ_ZM, KS_SFZ_FM,
+                          FQ_HKB_SY, FQ_HKB_BN,
+                          JHR_HKB_SY, JHR_HKB_BN,
+                          KS_HKB_SY, KS_HKB_BN,
+                          MQ_HKB_SY, MQ_HKB_BN)
+        VALUES (#{ksh}, #{xjh}, #{xm}, #{xb}, #{mz}, #{csrq},
+                #{scsblhdqmc}, #{scsblhdsmc}, #{scsblhdxmc}, #{sfzjlxmc}, #{sfzjh},
                 #{jtxxdzqmc}, #{jtxxdzsmc}, #{jtxxdzxmc},
+                #{szqmc}, #{szsmc}, #{szxmc}, #{kqmc},
                 #{yhjszqmc}, #{yhjszsmc}, #{yhjszxmc},
-                #{xjh}, #{xm}, #{xb}, #{mz}, #{csrq}, #{sfzjh},
-                #{szqmc}, #{szsmc}, #{szxmc},
-                #{qrxzsj}, #{zpdz}, #{yddh}, #{xxmc}, #{bjmc}, #{bjbs}, #{kjydjlbs})
+                #{qrxzsj}, #{qryy}, #{zqzh}, #{qyzh},
+                #{zpdz}, #{rxlb}, #{zzmm}, #{kslx},
+                #{yddh}, #{ysyz}, #{mzyyskYz},
+                #{kjztmc}, #{xxmc}, #{jb}, #{bjbs}, #{bjmc}, #{rxnd}, #{bynd},
+                #{shjd}, #{shzt}, #{shsj}, #{shrxm}, #{shyj},
+                #{cjrxm}, #{cjrgzrym},
+                #{gxrxm}, #{gxrgzrym},
+                #{kjydjlbs}, #{hklx},
+                #{ksSfzZm}, #{ksSfzFm},
+                #{fqHkbSy}, #{fqHkbBn},
+                #{jhrHkbSy}, #{jhrHkbBn},
+                #{ksHkbSy}, #{ksHkbBn},
+                #{mqHkbSy}, #{mqHkbBn})
     </insert>
 
     <insert id="insertGuardians">
@@ -193,9 +260,21 @@
             <if test="mzyyskyz != null">mzyyskyz = #{mzyyskyz},</if>
             <if test="ysyz != null">ysyz = #{ysyz},</if>
             <if test="shyj != null">shyj = #{shyj},</if>
-            <if test="shzt != null">shzt = #{shzt},</if>
             <if test="shrxm != null">shrxm = #{shrxm},</if>
             <if test="shsj != null">shsj = #{shsj},</if>
+
+            <!-- 新增字段 -->
+            <if test="hklx != null">hklx = #{hklx},</if>
+            <if test="ksSfzZm != null">ks_sfz_zm = #{ksSfzZm},</if>
+            <if test="ksSfzFm != null">ks_sfz_fm = #{ksSfzFm},</if>
+            <if test="fqHkbSy != null">fq_hkb_sy = #{fqHkbSy},</if>
+            <if test="fqHkbBn != null">fq_hkb_bn = #{fqHkbBn},</if>
+            <if test="jhrHkbSy != null">jhr_hkb_sy = #{jhrHkbSy},</if>
+            <if test="jhrHkbBn != null">jhr_hkb_bn = #{jhrHkbBn},</if>
+            <if test="ksHkbSy != null">ks_hkb_sy = #{ksHkbSy},</if>
+            <if test="ksHkbBn != null">ks_hkb_bn = #{ksHkbBn},</if>
+            <if test="mqHkbSy != null">mq_hkb_sy = #{mqHkbSy},</if>
+            <if test="mqHkbBn != null">mq_hkb_bn = #{mqHkbBn},</if>
         </set>
         WHERE ksh = #{ksh}
     </update>

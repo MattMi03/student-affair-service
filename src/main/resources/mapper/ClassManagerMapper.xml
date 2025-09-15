@@ -81,4 +81,50 @@
         WHERE BJBS = #{id}
     </delete>
 
+    <select id="findStudentByClassId" resultType="edu.qhjy.student.vo.StudentForClassVO">
+        SELECT ksh,
+               sfzjh,
+               xm,
+               bjmc
+        FROM ksxx
+        where bjbs = #{bjbs}
+    </select>
+
+    <select id="findAvailableStudentByClassId" resultType="edu.qhjy.student.vo.StudentForClassVO">
+        SELECT ks.KSH,
+               ks.SFZJH,
+               ks.XM,
+               bj.BJMC
+        FROM ksxx ks
+                 INNER JOIN xxjbxx xx ON ks.XXMC = xx.XXMC
+                 INNER JOIN bjxx bj ON xx.XXDM = bj.XXDM
+        WHERE bj.BJBS = #{bjbs}
+    </select>
+
+    <update id="clearStudentsFromClass" parameterType="long">
+        UPDATE ksxx
+        SET BJBS = NULL,
+            BJMC = NULL
+        WHERE BJBS = #{bjbs}
+    </update>
+
+    <select id="getBjmcAndJbByBjbs" resultType="edu.qhjy.student.dto.classmanager.BjxxDTO" parameterType="long">
+        SELECT BJMC, JB
+        FROM bjxx
+        WHERE BJBS = #{bjbs}
+    </select>
+
+    <update id="updateStudentBjbs" parameterType="map">
+        UPDATE ksxx
+        <set>
+            BJBS = #{bjbs},
+            BJMC = #{bjmc},
+            JB = #{jb}
+        </set>
+        WHERE KSH IN
+        <foreach item="ksh" collection="kshList" open="(" separator="," close=")">
+            #{ksh}
+        </foreach>
+    </update>
+
 </mapper>

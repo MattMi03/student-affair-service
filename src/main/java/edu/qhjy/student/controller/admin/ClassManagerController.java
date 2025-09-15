@@ -2,6 +2,7 @@ package edu.qhjy.student.controller.admin;
 
 import com.github.pagehelper.PageInfo;
 import edu.qhjy.common.Result;
+import edu.qhjy.student.dto.classmanager.AssignStudentsDTO;
 import edu.qhjy.student.dto.classmanager.ClassQueryDTO;
 import edu.qhjy.student.dto.classmanager.ClassUpsertDTO;
 import edu.qhjy.student.service.ClassManagerService;
@@ -11,6 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/classes")
@@ -55,4 +58,40 @@ public class ClassManagerController {
         boolean success = classManagerService.deleteClass(bjbs);
         return success ? Result.success() : Result.error("删除失败");
     }
+
+    @GetMapping("/student")
+    @Operation(summary = "查询班级拥有学生", description = "通过班级id查询拥有的分页学生列表")
+    public Result<?> getStudentById(
+            @RequestParam Long bjbs,
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+
+        var studentlist = classManagerService.getStudentByClassID(bjbs, pageNum, pageSize);
+
+        return Result.success(studentlist);
+    }
+
+    @GetMapping("/student/avaliable")
+    @Operation(summary = "查询可选择的学生", description = "通过班级id查询拥有的分页可选学生列表")
+    public Result<?> getStudentForClassById(
+            @RequestParam Long bjbs,
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+
+        var studentlist = classManagerService.getStudentAvailableByClassID(bjbs, pageNum, pageSize);
+
+        return Result.success(studentlist);
+    }
+
+    @PostMapping("/assign-students")
+    @Operation(summary = "批量分配学生到班级", description = "将传入的学生考号列表更新到指定班级")
+    public Result<?> assignStudentsToClass(@RequestBody AssignStudentsDTO dto) {
+        if (dto.getBjbs() == null || dto.getKshList() == null || dto.getKshList().isEmpty()) {
+            return Result.error("班级ID或学生列表不能为空");
+        }
+
+        int updated = classManagerService.assignStudentsToClass(dto.getBjbs(), dto.getKshList());
+        return Result.success(Map.of("msg", "成功更新 " + updated + " 个学生"));
+    }
+
 }

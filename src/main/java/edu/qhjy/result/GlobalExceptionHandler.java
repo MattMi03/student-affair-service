@@ -33,6 +33,14 @@ public class GlobalExceptionHandler {
         return Result.error(400, e.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public Result<Void> handleIllegalStateException(IllegalStateException e) {
+        log.warn("非法状态异常: {}", e.getMessage());
+        // 返回一个 code 为 400 (Bad Request) 的错误响应
+        return Result.error(400, e.getMessage());
+    }
+
+
     /**
      * 捕获所有其他未处理的异常
      */

@@ -2,8 +2,9 @@ package edu.qhjy.statuschange.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
 import java.io.Serializable;
 import java.time.LocalDate;
 

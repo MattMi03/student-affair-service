@@ -191,6 +191,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
 
         ksxx.setYsyz(bjxx.getYsyz());
         ksxx.setMzyyskyz(bjxx.getMzyyskyz());
+        ksxx.setShzt("已提交待审核");
 
         System.out.println("创建报名信息: " + ksxx);
         registrationMapper.insertStudentInfo(ksxx);

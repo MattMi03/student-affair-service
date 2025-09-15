@@ -1,9 +1,8 @@
 package edu.qhjy.statuschange.dto;
 
 import jakarta.validation.Valid;
-import lombok.Data;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.validation.annotation.Validated;
+import lombok.Data;
 
 import java.io.Serializable;
 

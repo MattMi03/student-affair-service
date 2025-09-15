@@ -58,7 +58,9 @@ public class AopLog {
      */
     @Pointcut("execution(public * edu.qhjy.student.controller..*Controller.*(..)) || " +
             "execution(public * edu.qhjy.statuschange.controller..*Controller.*(..))")
-    public void log() {}
+    public void log() {
+    }
+
     /**
      * 前置操作
      *

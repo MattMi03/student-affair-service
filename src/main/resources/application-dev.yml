@@ -17,10 +17,8 @@ spring:
     name: student-affair-server
   cloud:
     nacos:
-      server-addr: 47.120.37.33:8848
       discovery:
-        username: nacos
-        password: Zeh19990808*
+        enabled: false
 
 
 #  data:

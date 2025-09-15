@@ -2,6 +2,7 @@
 package edu.qhjy.statuschange.vo;
 
 import lombok.Data;
+
 import java.io.Serializable;
 import java.time.LocalDate;
 

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.statuschange.mapper.WorkflowMapper">
+
+    <select id="findFlowByDatabaseNamAndTableName" resultType="edu.qhjy.statuschange.domain.AuditFlow">
+        SELECT *
+        FROM auditflow
+        WHERE TableName = #{tableName}
+          AND DatabaseName = #{databaseName}
+    </select>
+
+    <select id="findFlowDetailByFlowIdAndStepOrder" resultType="edu.qhjy.statuschange.domain.AuditFlowDetail">
+        SELECT *
+        FROM auditflowdetail
+        WHERE AuditFlowID = #{flowId}
+          AND AuditFlowDe1 = #{stepOrder}
+    </select>
+
+    <select id="findFlowDetailByStateName" resultType="edu.qhjy.statuschange.domain.AuditFlowDetail">
+        SELECT *
+        FROM auditflowdetail
+        WHERE AuditFlowID = #{flowId}
+          AND AuditFlowDe2 = #{stateName}
+    </select>
+
+    <select id="findLatestLog" resultType="edu.qhjy.statuschange.domain.AuditLog">
+        SELECT *
+        FROM auditlog
+        WHERE AuditID = #{businessKey}
+        ORDER BY AuditDate DESC, AuditLogID DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertLog" parameterType="edu.qhjy.statuschange.domain.AuditLog">
+        INSERT INTO auditlog (AuditID, AuditState, AuditStatus, AuditCommen, Auditer, AuditDate)
+        VALUES (#{auditID}, #{auditState}, #{auditStatus}, #{auditCommen}, #{auditer}, #{auditDate})
+    </insert>
+
+    <select id="findDzmByDm" resultType="java.lang.String">
+        SELECT dzm
+        FROM xyzdk
+        WHERE DM = #{dm}
+    </select>
+
+    <select id="findFinalStepOfFlow" resultType="edu.qhjy.statuschange.domain.AuditFlowDetail">
+        SELECT *
+        FROM auditflowdetail
+        WHERE AuditFlowID = #{flowId}
+        ORDER BY AuditFlowDe1 DESC -- 按步骤顺序倒序排列
+        LIMIT 1 -- 取第一个，即为最高步骤
+    </select>
+
+</mapper>

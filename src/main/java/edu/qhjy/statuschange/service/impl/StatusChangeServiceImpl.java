@@ -4,39 +4,62 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import edu.qhjy.statuschange.domain.*;
 import edu.qhjy.statuschange.dto.*;
+import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
+import edu.qhjy.statuschange.dto.audit.UserInfo;
+import edu.qhjy.statuschange.dto.audit.WorkflowResultDTO;
+import edu.qhjy.statuschange.handler.IStatusChangeHandler;
 import edu.qhjy.statuschange.mapper.StatusChangeMapper;
+import edu.qhjy.statuschange.service.IWorkflowService;
 import edu.qhjy.statuschange.service.StatusChangeService;
 import edu.qhjy.statuschange.vo.*;
 import edu.qhjy.student.dto.registeration.RegistrationInfoDTO;
 import edu.qhjy.student.dto.registeration.StudentInfoDTO;
 import edu.qhjy.student.service.StudentRegistrationService;
-import edu.qhjy.statuschange.vo.InformationChangeSummaryVO;
+import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class StatusChangeServiceImpl implements StatusChangeService {
 
     private final StatusChangeMapper statusChangeMapper;
     private final StudentRegistrationService studentRegistrationService;
+    /**
+     * 审核相关实现
+     * 【核心】将审核操作委托给通用的工作流服务
+     * 【回调】根据工作流引擎返回的结果，更新业务表
+     */
+    private final IWorkflowService workflowService; // 【注入】通用工作流服务
+    private final List<IStatusChangeHandler> handlers;
+    private Map<Long, IStatusChangeHandler> handlerMap;
 
     @Override
-    public StudentBasicInfoVO getBasicInfo(String ksh) {
+    public PageInfo<StudentBasicInfoVO> getBasicInfo(BasicInfoQueryDTO basicInfoQueryDTO) {
+        // 在查询前设置分页信息
+        // pageNum：页码，pageSize：每页大小
+        PageHelper.startPage(basicInfoQueryDTO.getPageNum(), basicInfoQueryDTO.getPageSize());
 
-        // 调用Mapper方法获取学生基本信息
-        StudentBasicInfoVO studentInfo = statusChangeMapper.getBasicInfoByKsh(ksh);
+        List<StudentBasicInfoVO> studentInfo = statusChangeMapper.getBasicInfoByKsh(basicInfoQueryDTO);
 
-        // 如果没有找到学生信息，返回null或抛出异常
-        if (studentInfo == null) {
-            return null; // 或者可以抛出自定义异常
+        // 如果没有找到学生信息，返回空的 PageInfo
+        if (studentInfo == null || studentInfo.isEmpty()) {
+            return new PageInfo<>(Collections.emptyList());
         }
 
-        return studentInfo;
+        // PageInfo 会自动封装 total, pageNum, pageSize 等分页信息
+        return new PageInfo<>(studentInfo);
     }
 
     //    新生补录相关实现
@@ -64,9 +87,6 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         // 插入考籍异动记录
         Long kjydjlbs = insertKjydjl(studentBasicInfoDTO, 6L);
         registrationInfo.getStudentInfo().setKjydjlbs(kjydjlbs);
-
-        System.out.println("Late Registration Info: " + registrationInfo);
-
         // 走后续逻辑
         studentRegistrationService.createRegistrationByAdmin(registrationInfo);
     }
@@ -95,6 +115,21 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Transactional
     public void createSuspension(LeaveApplyDetailDTO leaveApplyDetailDTO) {
 
+        String ksh = leaveApplyDetailDTO.getStudentBasicInfoDTO().getKsh();
+        Long kjydlxbsSuspend = 1L; // 1 = 休学
+
+        // 校验1：通用规则 - 是否有正在审核的休学申请
+        if (statusChangeMapper.countPendingApplications(ksh, kjydlxbsSuspend) > 0) {
+            throw new IllegalStateException("该生有正在审核中的休学申请，请勿重复提交。");
+        }
+
+        // 校验2：特定规则 - 当前是否已经是休学状态
+        Xfxjl latestRecord = statusChangeMapper.findLatestEffectiveSuspensionOrResumption(ksh);
+        if (latestRecord != null && latestRecord.getXfxbj() == 0) { // 0 = 休学
+            throw new IllegalStateException("该生当前已处于休学状态，无法再次申请休学。");
+        }
+
+
         Long kjydlxbs = insertKjydjl(leaveApplyDetailDTO.getStudentBasicInfoDTO(), 1L);
 
         Xfxjl xfxjl = new Xfxjl();
@@ -108,6 +143,21 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Override
     @Transactional
     public void applyForReturn(ReturnApplyDTO applyDTO) {
+
+        String ksh = applyDTO.getStudentBasicInfoDTO().getKsh();
+        Long kjydlxbsResume = 2L; // 2 = 复学
+
+        // 校验1：通用规则 - 是否有正在审核的复学申请
+        if (statusChangeMapper.countPendingApplications(ksh, kjydlxbsResume) > 0) {
+            throw new IllegalStateException("您已有正在审核中的复学申请，请勿重复提交。");
+        }
+
+        // 校验2：特定规则 - 当前是否处于可复学的状态（即最近一次记录是休学）
+        Xfxjl latestRecord = statusChangeMapper.findLatestEffectiveSuspensionOrResumption(ksh);
+        if (latestRecord == null || latestRecord.getXfxbj() != 0) { // 必须有记录，且记录是休学
+            throw new IllegalStateException("该生当前不处于休学状态，或没有休学记录，无法申请复学。");
+        }
+
         // 1. 创建总表记录
         Long kjydjlbs = insertKjydjl(applyDTO.getStudentBasicInfoDTO(), 2L);
         Xfxjl xiuxue = statusChangeMapper.getLatestXfxjlByKjydjlbs(applyDTO.getStudentBasicInfoDTO().getKsh());
@@ -121,11 +171,12 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         BeanUtils.copyProperties(applyDTO, xfxjl);
         xfxjl.setKjydjlbs(kjydjlbs);
         xfxjl.setXfxbj((byte) 1); // 关键：设置标记为 1 (复学)
-        xfxjl.setJdnj(xiuxue.getJdnj());
+        xfxjl.setJdnj(applyDTO.getXjdnjYear());
         xfxjl.setXxmc(xiuxue.getXxmc());
         xfxjl.setXxrq(xiuxue.getXxrq());
         xfxjl.setXxyy(xiuxue.getXxyy());
         xfxjl.setXxsc(xiuxue.getXxsc());
+
 
         statusChangeMapper.insertXfxjl(xfxjl);
     }
@@ -153,6 +204,15 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Override
     @Transactional
     public void applyTransfer(TransferApplyDetailDTO applyDTO, Long zxlx) {
+
+
+        String ksh = applyDTO.getStudentBasicInfoDTO().getKsh();
+        Long kjydlxbsTransfer = 4L; // 4 = 转学
+
+        if (statusChangeMapper.countPendingApplications(ksh, kjydlxbsTransfer) > 0) {
+            throw new IllegalStateException("您已有正在审核中的转学申请，请勿重复提交。");
+        }
+
         // 1. 为主申请创建总记录和详情记录
         Long mainKjydjlbs = insertKjydjl(applyDTO.getStudentBasicInfoDTO(), 4L);
 
@@ -204,6 +264,13 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Override
     @Transactional
     public void applyForAttrition(AttritionApplyDTO applyDTO) {
+
+        String ksh = applyDTO.getStudentBasicInfoDTO().getKsh();
+        Long kjydlxbsTransfer = 5L; // 5 = 流失
+
+        if (statusChangeMapper.countPendingApplications(ksh, kjydlxbsTransfer) > 0) {
+            throw new IllegalStateException("您已有正在审核中的流失申请，请勿重复提交。");
+        }
         // 1. 调用复用的方法创建总表记录
         // 假设“流失”在 kjydlx 表中的ID为 3L
         Long kjydjlbs = insertKjydjl(applyDTO.getStudentBasicInfoDTO(), 5L);
@@ -222,7 +289,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         BeanUtils.copyProperties(studentBasicInfoDTO, kjydjl);
         kjydjl.setKjydlxbs(kjydlxbs);
         kjydjl.setShzt("待审核");
-        kjydjl.setShjd("学校审核");
+        kjydjl.setShjd("待提交");
         statusChangeMapper.insertKjydjl(kjydjl);
         return kjydjl.getKjydjlbs();
     }
@@ -231,6 +298,13 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Override
     @Transactional
     public void applyForAbroad(AbroadApplyDTO applyDTO) {
+        String ksh = applyDTO.getStudentBasicInfoDTO().getKsh();
+        Long kjydlxbsTransfer = 7L; // 4 = 转学
+
+        if (statusChangeMapper.countPendingApplications(ksh, kjydlxbsTransfer) > 0) {
+            throw new IllegalStateException("您已有正在审核中的出国登记申请，请勿重复提交。");
+        }
+
         // 1. 创建考籍异动记录
         Long kjydjlbs = insertKjydjl(applyDTO.getStudentBasicInfoDTO(), 7L);
         // 2. 创建出国登记记录
@@ -253,6 +327,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         detail.setGgsxmc(applyDTO.getGgsxmc());
         detail.setGqz(applyDTO.getGqz());
         detail.setGhz(applyDTO.getGhz());
+        detail.setZmwjdz(applyDTO.getZmwjdz());
 
         statusChangeMapper.insertKeyPropertyChange(detail);
     }
@@ -310,4 +385,74 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         List<InformationChangeSummaryVO> list = statusChangeMapper.selectInformationChangeSummary(queryDTO);
         return new PageInfo<>(list);
     }
+
+    @Override
+    public List<InformationChangeVO> getInformationChangeListByKsh(String ksh) {
+        // 这里可以加入非空校验等业务逻辑
+        return statusChangeMapper.selectInformationChangeByKsh(ksh);
+    }
+
+    @Override
+    public List<StatusChangeVO> getStatusChangeListByKsh(String ksh) {
+        // 这里可以加入非空校验等业务逻辑
+        return statusChangeMapper.selectStatusChangeByKsh(ksh);
+    }
+
+    @PostConstruct
+    public void init() {
+        handlerMap = handlers.stream()
+                .collect(Collectors.toMap(IStatusChangeHandler::getActionType, Function.identity()));
+        log.info("加载了 {} 个学籍异动善后处理器。", handlerMap.size());
+    }
+
+    @Override
+    @Transactional
+    public void auditApplication(Long kjydjlbs, AuditRequestDTO dto, UserInfo currentUser) {
+        // 1. 获取业务对象
+        Kjydjl application = statusChangeMapper.findKjydjlById(kjydjlbs);
+        if (application == null) {
+            throw new IllegalStateException("找不到对应的学籍异动申请记录，无法审核");
+        }
+        if (!"待审核".equals(application.getShzt())) {
+            throw new IllegalStateException("该申请已被处理，无法重复审核");
+        }
+
+        // 2. 【核心】将审核操作委托给通用的工作流服务
+        WorkflowResultDTO result = workflowService.processAudit(
+                kjydjlbs,              // 业务主键
+                "edu_eligibility",          // 业务数据库名，用于在auditflow中查找流程
+                "KJYDJL",              // 业务表名，用于在auditflow中查找流程
+                application.getKsh(),    // 申请人考生号，用于精细化权限校验
+                dto,                   // 审核决定和意见
+                currentUser            // 当前审核人信息
+        );
+
+        application.setShjd(result.getStageName());
+
+        // 3. 【回调】根据工作流引擎返回的结果，更新业务表 kjydjl 的状态
+        if (result.getFinalStatus() != null) {
+            // 如果流程结束（终审通过或被驳回），更新最终状态
+            application.setShzt(result.getFinalStatus());
+
+            // 如果终审通过，执行善后操作
+            if ("通过".equals(result.getFinalStatus())) {
+                IStatusChangeHandler handler = handlerMap.get(application.getKjydlxbs());
+                if (handler != null) {
+                    handler.apply(kjydjlbs);
+                } else {
+                    log.warn("未找到针对异动类型 {} 的善后处理器。", application.getKjydlxbs());
+                }
+            }
+        } else {
+            // 如果流程未结束，状态依然是“待审核”，等待下一级处理
+            application.setShzt("待审核");
+        }
+
+        // 4. 更新公共审核信息并持久化 (逻辑不变)
+        application.setShrxm(currentUser.getName());
+        application.setShyj(dto.getComments());
+        application.setShsj(LocalDateTime.now());
+        statusChangeMapper.updateAuditInfo(application);
+    }
+
 }

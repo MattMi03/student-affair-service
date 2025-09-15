@@ -5,7 +5,10 @@ import com.github.pagehelper.PageInfo;
 import edu.qhjy.common.Result;
 import edu.qhjy.statuschange.dto.*;
 import edu.qhjy.statuschange.service.StatusChangeService;
-import edu.qhjy.statuschange.vo.*;
+import edu.qhjy.statuschange.vo.KeyPropertyChangeListVO;
+import edu.qhjy.statuschange.vo.LeaveAuditListVO;
+import edu.qhjy.statuschange.vo.ReturnAuditListVO;
+import edu.qhjy.statuschange.vo.TransferAuditListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -85,7 +88,7 @@ public class StudentStatusChangeController {
             HttpServletRequest request,
             @Parameter(description = "【临时测试用】考生号") @RequestParam(required = false) String getKsh) {
         String ksh = getCurrentUserKsh(request, getKsh);
-        applyDTO.getStudentBasicInfoDTO().setKsh(getKsh);
+        applyDTO.getStudentBasicInfoDTO().setKsh(ksh);
         statusChangeService.applyForReturn(applyDTO);
         return Result.success("复学申请提交成功");
     }
@@ -209,12 +212,14 @@ public class StudentStatusChangeController {
 
     @GetMapping("/basic-info")
     @Operation(summary = "获取学生基本信息", description = "根据考生号获取学生的基本信息")
-    public Result<StudentBasicInfoVO> getStudentBasicInfo(
+    public Result<?> getStudentBasicInfo(
             HttpServletRequest request,
             @Parameter(description = "【临时测试用】考生号") @RequestParam(required = false) String ksh) {
         // 强制使用请求头中的考生号，确保安全性
-        String currentKsh = getCurrentUserKsh(request, ksh);
-        StudentBasicInfoVO studentBasicInfo = statusChangeService.getBasicInfo(currentKsh);
+        ksh = getCurrentUserKsh(request, ksh);
+        BasicInfoQueryDTO basicInfoQueryDTO = new BasicInfoQueryDTO();
+        basicInfoQueryDTO.setKsh(ksh);
+        var studentBasicInfo = statusChangeService.getBasicInfo(basicInfoQueryDTO);
         if (studentBasicInfo == null) {
             return Result.error("未找到学生信息");
         }
@@ -251,7 +256,8 @@ public class StudentStatusChangeController {
                                                  HttpServletRequest request,
                                                  @Parameter(description = "【临时测试用】考生号") @RequestParam(required = false) String getKsh) {
 
+        String ksh = getCurrentUserKsh(request, getKsh);
         String type = statusChangeService.deleteStatusChangeRecord(kjydjlbs);
-        return Result.success(type+"记录删除成功");
+        return Result.success(type + "记录删除成功");
     }
 }

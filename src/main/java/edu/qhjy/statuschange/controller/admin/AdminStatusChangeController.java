@@ -3,14 +3,20 @@ package edu.qhjy.statuschange.controller.admin;
 import com.github.pagehelper.PageInfo;
 import edu.qhjy.common.Result;
 import edu.qhjy.statuschange.dto.*;
+import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
+import edu.qhjy.statuschange.dto.audit.UserInfo;
 import edu.qhjy.statuschange.service.StatusChangeService;
 import edu.qhjy.statuschange.vo.*;
-import edu.qhjy.statuschange.vo.InformationChangeSummaryVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/admin/status-changes")
@@ -20,11 +26,11 @@ public class AdminStatusChangeController {
 
     private final StatusChangeService statusChangeService;
 
-    @GetMapping("/basic-info/{ksh}")
+    @GetMapping("/basic-info")
     @Operation(summary = "获取学生基本信息", description = "根据考生号获取学生的基本信息")
-    public Result<Object> getBasicInfo(String ksh) {
+    public Result<Object> getBasicInfo(BasicInfoQueryDTO basicInfoQueryDTO) {
         // 调用服务层方法获取学生基本信息
-        var studentInfo = statusChangeService.getBasicInfo(ksh);
+        var studentInfo = statusChangeService.getBasicInfo(basicInfoQueryDTO);
 
         // 检查是否成功获取到学生信息
         if (studentInfo == null) {
@@ -190,6 +196,51 @@ public class AdminStatusChangeController {
     @Operation(summary = "删除学籍异动记录", description = "根据考籍异动记录标识ID删除对应的学籍异动记录")
     public Result<Void> deleteStatusChangeRecord(@PathVariable Long kjydjlbs) {
         String type = statusChangeService.deleteStatusChangeRecord(kjydjlbs);
-        return Result.success(type+"记录删除成功");
+        return Result.success(type + "记录删除成功");
+    }
+
+    // 审核相关接口
+    @PostMapping("/{kjydjlbs}/audit")
+    @Operation(summary = "审核学籍异动申请", description = "对指定ID的学籍异动申请进行审核（通过或驳回）")
+    public Result<Void> audit(HttpServletRequest request,
+                              @PathVariable Long kjydjlbs, @Validated @RequestBody AuditRequestDTO dto,
+                              @RequestParam(value = "getName", required = false) String getName,
+                              @RequestParam(value = "getGroupId", required = false) String getGroupId,
+                              @RequestParam(value = "getDm", required = false) String getDm) {
+        Collections.list(request.getHeaderNames()).forEach(headerName -> {
+            System.out.println("Header: " + headerName + " = " + request.getHeader(headerName));
+        });
+
+        // 从请求头获取并解析JWT令牌，提取用户信息
+        String dm = request.getHeader("x-user-dm");
+        String groupId = request.getHeader("x-user-js");
+        String encodedUserName = request.getHeader("x-user-realname");
+        String name = encodedUserName != null
+                ? URLDecoder.decode(encodedUserName, StandardCharsets.UTF_8)
+                : null;
+
+        if (dm == null || dm.isEmpty()) {
+            dm = getDm;
+        }
+        if (groupId == null || groupId.isEmpty()) {
+            groupId = getGroupId;
+        }
+        if (name == null || name.isEmpty()) {
+            name = getName;
+        }
+
+        System.out.println("审核操作用户信息 - 用户名: " + name + ", 用户代码: " + dm + ", 角色ID: " + groupId);
+
+        if (dm == null || dm.isEmpty() || groupId == null || groupId.isEmpty() || name == null || name.isEmpty()) {
+            return Result.error("无法获取审核人信息，请确保请求头中包含用户信息");
+        }
+
+        UserInfo currentUser = new UserInfo();
+        currentUser.setDm(dm);
+        currentUser.setGroupId(groupId);
+        currentUser.setName(name);
+
+        statusChangeService.auditApplication(kjydjlbs, dto, currentUser);
+        return Result.success("审核操作成功");
     }
 }

@@ -2,6 +2,7 @@
 package edu.qhjy.statuschange.vo;
 
 import lombok.Data;
+
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,6 +28,7 @@ public class ReturnAuditListVO implements Serializable {
     private String xbjmc;         // 新班级
     private String jdnj;
     private String xjdnj;        // 新就读年级
+    private String yyzmwjdz;
     private String bz;          // 备注
     private LocalDateTime cjsj; // 操作时间
     private String shzt;        // 审核状态

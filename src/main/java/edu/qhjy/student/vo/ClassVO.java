@@ -15,15 +15,15 @@ public class ClassVO implements Serializable {
     private String szsdm; // 所在市代码
     private String szsmc; // 所在市名称
     private String kqdm; // 考区代码
-    private String kqmc;   // 考区名称
-    private String xxmc;   // 学校名称
     private String xxdm;   // 学校标识ID
 
     // --- 原有班级核心字段 ---
     private Long bjbs;
-    private String bjmc;
     private Integer jb;
+    private String bjmc;
     private String bzrxm;
+    private String xxmc;
+    private String kqmc;
     private String bjlx;
     private String ysyz;
     private String mzyyskyz;

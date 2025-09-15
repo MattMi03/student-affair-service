@@ -26,19 +26,19 @@ public class ClassUpsertDTO {
 
     @NotBlank(message = "学校代码不能为空")
     private String xxdm;
-
-    @NotBlank(message = "班主任不能为空")
-    private String bzrxm;
-
-    @NotBlank(message = "班主任工作人员码不能为空")
-    private String bzrgzrym;
-
-    @NotBlank(message = "班级类型不能为空")
-    private String bjlx;
-
-    @NotBlank(message = "应试语种不能为空")
-    private String ysyz;
-
-    @NotBlank(message = "民族语种不能为空")
-    private String mzyyskyz;
+//
+//    @NotBlank(message = "班主任不能为空")
+//    private String bzrxm;
+//
+//    @NotBlank(message = "班主任工作人员码不能为空")
+//    private String bzrgzrym;
+//
+//    @NotBlank(message = "班级类型不能为空")
+//    private String bjlx;
+//
+//    @NotBlank(message = "应试语种不能为空")
+//    private String ysyz;
+//
+//    @NotBlank(message = "民族语种不能为空")
+//    private String mzyyskyz;
 }
