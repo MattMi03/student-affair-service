@@ -11,6 +11,7 @@ import edu.qhjy.student.vo.StudentListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -56,7 +57,8 @@ public class AdminStudentRegistrationController {
 
     @PostMapping("/audits/{ksh}")
     @Operation(summary = "审核学生注册信息", description = "通过考生号审核学生的注册信息")
-    public Result<Void> auditStudent(@RequestBody AuditRequestDTO auditRequest, @PathVariable String ksh) {
+    public Result<Void> auditStudent(@Validated @RequestBody AuditRequestDTO auditRequest, @PathVariable String ksh) {
+        System.out.println(auditRequest);
         registrationService.auditRegistration(ksh, auditRequest);
         return Result.success("审核成功");
     }

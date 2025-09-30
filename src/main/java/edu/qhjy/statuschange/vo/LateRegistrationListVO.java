@@ -18,6 +18,7 @@ public class LateRegistrationListVO implements Serializable {
     private String bjmc;        // 班级
     private LocalDate blsj; // 补录时间 (即申请创建时间)
     private String blxx;        // 补录学校
+    private String shjd;          // 审核节点
     private String shzt;        // 审核状态
     private String shyj;        // 审核意见
     private String mz;

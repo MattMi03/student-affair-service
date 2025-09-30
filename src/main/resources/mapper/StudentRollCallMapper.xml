@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.rollcall.mapper.StudentRollCallMapper">
+
+    <select id="findForPage" resultType="edu.qhjy.rollcall.vo.StudentRollCallListVO">
+        SELECT
+        s.XXMC AS xxmc,
+        s.XM AS xm,
+        s.KSH AS ksh,
+        s.SFZJH AS sfzjh,
+        s.JB AS jb,
+        s.BJMC AS bjmc,
+        k.kqzt,
+        k.kqsj,
+        k.zqry
+        FROM
+        kqjl k
+        JOIN ksxx s ON k.ksh = s.KSH
+        JOIN xxjbxx xx ON s.XXMC = xx.XXMC
+        <where>
+            <if test="xxdm != null and xxdm != ''">
+                AND xx.XXDM = #{xxdm}
+            </if>
+            <if test="xm != null and xm != ''">
+                AND s.XM LIKE CONCAT('%', #{xm}, '%')
+            </if>
+            <if test="sfzjh != null and sfzjh != ''">
+                AND s.SFZJH = #{sfzjh}
+            </if>
+            <if test="jb != null">
+                AND s.JB = #{jb}
+            </if>
+            <if test="bjbs != null">
+                AND s.BJBS = #{bjbs}
+            </if>
+        </where>
+        ORDER BY k.kqsj DESC
+    </select>
+
+    <select id="findForPageForExcel" resultType="edu.qhjy.rollcall.vo.StudentRollCallListVO">
+        SELECT
+        xx.xxmc AS xxmc,
+        s.XM AS xm,
+        s.KSH AS ksh,
+        s.SFZJH AS sfzjh,
+        s.JB AS jb,
+        s.BJMC AS bjmc
+        FROM
+        ksxx s
+        JOIN xxjbxx xx ON s.XXMC = xx.XXMC
+        <where>
+            AND s.KJZTMC = '正常在校'
+            <if test="xxdm != null and xxdm != ''">
+                AND xx.XXDM = #{xxdm}
+            </if>
+            <if test="jb != null">
+                AND s.JB = #{jb}
+            </if>
+            <if test="bjbs != null">
+                AND s.BJBS = #{bjbs}
+            </if>
+        </where>
+    </select>
+
+    <insert id="batchInsert">
+        INSERT INTO kqjl (ksh, kqzt, kqsj, zqry)
+        VALUES
+        <foreach collection="list" item="record" separator=",">
+            (#{record.ksh}, #{record.kqzt}, #{record.kqsj}, #{record.zqry})
+        </foreach>
+    </insert>
+
+    <select id="findExistingKshs" resultType="string" parameterType="list">
+        SELECT KSH FROM ksxx
+        WHERE KSH IN
+        <foreach item="ksh" collection="list" open="(" separator="," close=")">
+            #{ksh}
+        </foreach>
+    </select>
+
+    <insert id="batchInsertIgnoreDuplicates" parameterType="list">
+        INSERT INTO kqjl (ksh, kqzt, kqsj, zqry)
+        SELECT ksh, kqzt, kqsj, zqry
+        FROM (
+        <foreach collection="list" item="record" separator="UNION ALL">
+            SELECT
+            #{record.ksh} AS ksh,
+            #{record.kqzt} AS kqzt,
+            #{record.kqsj} AS kqsj,
+            #{record.zqry} AS zqry
+        </foreach>
+        ) tmp
+        WHERE NOT EXISTS (
+        SELECT 1 FROM kqjl
+        WHERE ksh = tmp.ksh
+        AND TRUNC(kqsj) = TRUNC(tmp.kqsj)
+        )
+    </insert>
+
+</mapper>

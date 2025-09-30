@@ -19,10 +19,11 @@ public interface WorkflowMapper {
 
     String findDzmByDm(String dm);
 
-    AuditFlow findFlowByDatabaseNamAndTableName(String databaseName, String tableName);
+    AuditFlow findFlowByTableName(String tableName);
 
     /**
      * 根据流程ID，查询该流程定义的最高审核步骤（即最终审核步骤）
+     *
      * @param flowId 流程ID
      * @return 最高审核步骤的详情
      */

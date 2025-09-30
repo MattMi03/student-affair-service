@@ -9,22 +9,9 @@ server:
     # 同样调高连接等待队列的长度，以应对瞬时高峰
     accept-count: 1000
 
-#spring:
-#  datasource:
-#    url: jdbc:mysql://47.120.72.179:3367/edu_eligibility?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-#    username: dms_user_admin
-#    password: Qhedu@)@%
-#  application:
-#    name: student-affair-server
-#  cloud:
-#    nacos:
-#     discovery:
-#       enabled: false
-
 spring:
   datasource:
-    url: jdbc:dm://172.20.193.204:5236/EDU_ELIGIBILITY?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
+    url: jdbc:dm://172.20.193.204:5236/EDU_DATABASE?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
     driver-class-name: dm.jdbc.driver.DmDriver
     username: SYSDBA
     password: SYSDBA001
@@ -37,6 +24,9 @@ spring:
         username: nacos
         password: Zeh19990808*
 
+springdoc:
+  swagger-ui:
+    doc-expansion: none
 
 #  data:
 #    redis:
@@ -57,11 +47,6 @@ spring:
 #          min-idle: 10     # 保持一些空闲连接
 #          max-wait: -1ms
 
-
-
-jwt:
-  secret: cWhjYWgtZXhhbS1zeXN0ZW0tand0LXNlY3JldC1rZXktMjAyNC10aGlzLWtleS1tdXN0LWJlLWF0LWxlYXN0LTY0LWNoYXJhY3RlcnMtbG9uZy1mb3ItaHM1MTItYWxnb3JpdGhtLXNlY3VyaXR5
-  expiration: 604800
 
 management:
   endpoints:

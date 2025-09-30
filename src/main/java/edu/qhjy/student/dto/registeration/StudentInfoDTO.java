@@ -22,7 +22,7 @@ public class StudentInfoDTO {
     private String kjztmc;      // 学籍状态 1
     private String zzmm;        // 政治面貌 1
     private Integer jb;      // 年级 1
-    private String rxlb;     // 入学类别 1
+    private String kslx;    // 考生类型 1
     //    private String yddh;          // 移动电话
     //    private String sfzjlxmc;      // 身份证件类型名称
     private Long bjbs;         // 现就读班级标识

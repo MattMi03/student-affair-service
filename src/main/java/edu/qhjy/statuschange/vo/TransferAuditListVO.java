@@ -25,9 +25,15 @@ public class TransferAuditListVO implements Serializable {
     private String zrqxmc;      // 转入区县
     private String jdbj;      // 班级
     private String scwjdz;    // 审查文件地址
+
+    private String jdsqzmwjdz; // 就读申请证明文件地址
+    private String mbxxlqzmwjdz; // 目标学校录取证明文件地址
+    private String swjdsxbawjdz; // 省外就读手续备案文件地址
+
     private LocalDate zcsj;     // 转出时间 (假设用创建时间)
     private String zcyy;        // 转出原因 (可以从审核意见获取)
     private LocalDateTime tjsj; // 提交时间 (即申请创建时间)
+    private String shjd;          // 审核节点
     private String shzt;        // 审核状态
     private String shyj;        // 审核意见
     private String mz;

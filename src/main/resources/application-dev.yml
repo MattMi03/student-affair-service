@@ -6,13 +6,17 @@ server:
       max: 800
     # 同样调高连接等待队列的长度，以应对瞬时高峰
     accept-count: 1000
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
 
 spring:
   datasource:
-    url: jdbc:mysql://47.120.72.179:3367/edu_eligibility?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: dms_user_admin
-    password: Qhedu@)@%
+    url: jdbc:dm://47.120.37.33:5236/EDU_COPY?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
+    driver-class-name: dm.jdbc.driver.DmDriver
+    username: SYSDBA
+    password: SYSDBA001
   application:
     name: student-affair-server
   cloud:

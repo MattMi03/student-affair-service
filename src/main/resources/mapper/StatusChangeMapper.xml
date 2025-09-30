@@ -16,6 +16,8 @@
 
     <select id="getBasicInfoByKsh" parameterType="edu.qhjy.statuschange.dto.BasicInfoQueryDTO" resultMap="basicInfo">
         SELECT
+        ks.ksh,
+        ks.kjztmc,
         ks.xm, -- 姓名
         ks.xb, -- 性别
         ks.csrq, -- 出生日期
@@ -70,7 +72,7 @@
         ks.BJMC AS bjmc,
         j.CJSJ AS blsj,
         ks.XXMC AS blxx,
-        j.SHZT AS shzt,
+        j.SHZT AS shzt, j.SHJD AS shjd,
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
         j.MZ AS mz,
@@ -123,7 +125,7 @@
         j.MZ AS mz,
         j.SFZJH AS sfzjh,
         j.CJSJ AS tjsj,
-        j.SHZT AS shzt,
+        j.SHZT AS shzt, j.SHJD AS shjd,
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
 
@@ -192,6 +194,7 @@
         <result column="cjsj" property="cjsj"/>
         <result column="shzt" property="shzt"/>
         <result column="shyj" property="shyj"/>
+        <result column="yyzmwjdz" property="yyzmwjdz"/>
     </resultMap>
 
     <select id="selectReturnList" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO"
@@ -204,7 +207,7 @@
         j.MZ AS mz,
         j.SFZJH AS sfzjh,
         j.CJSJ AS cjsj,
-        j.SHZT AS shzt,
+        j.SHZT AS shzt, j.SHJD AS shjd,
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
 
@@ -216,10 +219,8 @@
         x.FXRQ AS fxrq, -- 复学日期
         x.XBJMC AS xbjmc, -- 新班级
         x.XJDNJ AS xjdnj, -- 级别年级
-        CONCAT(
-        FLOOR(TIMESTAMPDIFF(MONTH, x.XXRQ, x.FXRQ) / 12), '年',
-        MOD(TIMESTAMPDIFF(MONTH, x.XXRQ, x.FXRQ), 12), '月'
-        ) AS xxsc,
+        x.yyzmwjdz AS yyzmwjdz, -- 原因证明文件地址
+        x.XXSC AS xxsc,
         x.FXXJH AS fxxjh, -- 复学学籍号
         x.BZ AS bz -- 备注
 
@@ -242,6 +243,13 @@
         j.CJSJ DESC
     </select>
 
+    <update id="updateXfxjlDetails" parameterType="edu.qhjy.statuschange.domain.Xfxjl">
+        UPDATE xfxjl
+        SET XBJMC = #{xbjmc},
+            XBJBS = #{xbjbs},
+            XJDNJ = #{xjdnj}
+        WHERE XFXJLBS = #{xfxjlbs}
+    </update>
 
     <insert id="insertXfxjl" parameterType="edu.qhjy.statuschange.domain.Xfxjl">
         INSERT INTO xfxjl
@@ -322,7 +330,7 @@
         j.KSH AS ksh,
         j.XM AS xm,
         j.SFZJH AS sfzjh,
-        j.SHZT AS shzt,
+        j.SHZT AS shzt, j.SHJD AS shjd,
         j.SHYJ AS shyj,
         j.CJSJ AS tjsj,
         j.ZBMC AS zbmc,
@@ -341,6 +349,9 @@
         z.JDNJ AS jdnj, -- 级别年级
         z.ZCSJ AS zcsj, -- 转学时间
         z.SCWJDZ AS scwjdz,-- 审查文件地址
+        z.jdsqzmwjdz AS jdsqzmwjdz, -- 就读申请证明文件地址
+        z.mbxxlqzmwjdz AS mbxxlqzmwjdz, -- 目标学校录取证明文件地址
+        z.swjdsxbawjdz AS swjdsxbawjdz, -- 省外就读手续备案文件地址
         ks.jb AS jb -- 级别
         FROM kjydjl j
         INNER JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
@@ -362,11 +373,22 @@
         </where>
     </select>
 
+    <update id="updateZxjlDetails" parameterType="edu.qhjy.statuschange.domain.Zxjl">
+        UPDATE zxjl
+        SET jdbj = #{jdbj},
+            BJBS = #{bjbs}
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </update>
+
+    <!--    private String jdsqzmwjdz; // 就读申请证明文件地址-->
+    <!--    private String mbxxlqzmwjdz; // 目标学校录取证明文件地址-->
+    <!--    private String swjdsxbawjdz; // 省外就读手续备案文件地址-->
     <insert id="insertZxjl" parameterType="edu.qhjy.statuschange.domain.Zxjl">
         INSERT INTO zxjl
-        (kjydjlbs, zxlx, yxxmc, yjdbj, xxmc, jdbj, jdnj, zcsj, zcyy, scwjdz, SZSMC, SZQMC, SZXMC)
+        (kjydjlbs, zxlx, yxxmc, yjdbj, xxmc, jdbj, jdnj, zcsj, zcyy, scwjdz, SZSMC, SZQMC, SZXMC, jdsqzmwjdz,
+         mbxxlqzmwjdz, swjdsxbawjdz)
         VALUES (#{kjydjlbs}, #{zxlx}, #{yxxmc}, #{yjdbj}, #{xxmc}, #{jdbj}, #{jdnj}, #{zcsj}, #{zcyy}, #{scwjdz},
-                #{szsmc}, #{szqmc}, #{szxmc})
+                #{szsmc}, #{szqmc}, #{szxmc}, #{jdsqzmwjdz}, #{mbxxlqzmwjdz}, #{swjdsxbawjdz})
     </insert>
 
     <resultMap id="AttritionListResultMap" type="edu.qhjy.statuschange.vo.AttritionListVO">
@@ -404,7 +426,7 @@
         l.LSYY AS lsyy,
         l.LSSJ AS lssj,
         j.CJSJ AS czsj,
-        j.SHZT AS shzt,
+        j.SHZT AS shzt, j.SHJD AS shjd,
         j.SHYJ AS shyj,
         j.mz AS mz,
         j.xb AS xb,
@@ -514,7 +536,7 @@
         g.GQZ AS gqz,
         g.GHZ AS ghz,
         j.CJSJ AS czsj,
-        j.SHZT AS shzt,
+        j.SHZT AS shzt, j.SHJD AS shjd,
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
         j.MZ AS mz,
@@ -541,14 +563,20 @@
         j.CJSJ DESC
     </select>
 
+    <select id="findIfExistByKsh" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM ksxx
+        WHERE KSH = #{ksh}
+    </select>
+
     <insert id="insertKjydjl" parameterType="edu.qhjy.statuschange.domain.Kjydjl" useGeneratedKeys="true"
             keyProperty="kjydjlbs">
         INSERT INTO kjydjl (KSH, XM, XB, MZ, SFZJH, ZBMC, KJYDLXBS, CJSJ, SHZT, SHJD)
         VALUES (#{ksh}, #{xm}, #{xb}, #{mz}, #{sfzjh}, #{zbmc}, #{kjydlxbs}, NOW(), #{shzt}, #{shjd})
     </insert>
 
-    <select id="getKjydlxbsByKjydjlbs" parameterType="java.lang.Long" resultType="java.lang.Long">
-        SELECT KJYDLXBS
+    <select id="getKjydlxbsByKjydjlbs" parameterType="java.lang.Long" resultType="edu.qhjy.statuschange.dto.delete.KjydjlRecordDTO">
+        SELECT KJYDLXBS, SHZT
         FROM kjydjl
         WHERE KJYDJLBS = #{kjydjlbs}
     </select>
@@ -604,8 +632,10 @@
         <result column="outOfProvinceOutCount" property="outOfProvinceOutCount"/>
     </resultMap>
 
-    <select id="selectInformationChangeSummary" parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO"
+    <select id="selectInformationChangeSummary"
+            parameterType="edu.qhjy.statuschange.dto.CommonQueryDTO"
             resultMap="InformationChangeSummaryResultMap">
+
         SELECT
         ks.KSH AS ksh,
         ks.XM AS xm,
@@ -624,14 +654,11 @@
         COUNT(CASE WHEN z.ZXLX = 4 THEN 1 END) AS outOfProvinceInCount, -- 省外转入
         COUNT(CASE WHEN z.ZXLX = 3 THEN 1 END) AS outOfProvinceOutCount -- 转出省外
 
-        FROM
-        ksxx ks
-        -- LEFT JOIN on 异动总表
+        FROM ksxx ks
         LEFT JOIN kjydjl j ON ks.KSH = j.KSH
-        -- LEFT JOIN on 休复学详情表
         LEFT JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
-        -- LEFT JOIN on 转学详情表
         LEFT JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
+
         <where>
             <if test="ksh != null and ksh != ''">
                 AND ks.KSH = #{ksh}
@@ -643,12 +670,70 @@
                 AND ks.SFZJH = #{sfzjh}
             </if>
         </where>
+
         -- 按学生进行分组
-        GROUP BY
-        ks.KSH
-        ORDER BY
-        ks.KSH
+        GROUP BY ks.KSH, ks.XM, ks.SFZJH, ks.jb, ks.BJMC
+        ORDER BY ks.KSH
     </select>
+
+
+    <resultMap id="selectInformationChangeSummaryBySchoolResultMap"
+               type="edu.qhjy.statuschange.vo.InformationChangeSummaryBySchoolVO">
+        <result column="xxmc" property="xxmc"/>
+        <result column="jb" property="jb"/>
+        <result column="kqmc" property="kqmc"/>
+        <result column="keyPropertyChangeCount" property="keyPropertyChangeCount"/>
+        <result column="returnSchoolCount" property="returnSchoolCount"/>
+        <result column="leaveSchoolCount" property="leaveSchoolCount"/>
+        <result column="inProvinceInCount" property="inProvinceInCount"/>
+        <result column="inProvinceOutCount" property="inProvinceOutCount"/>
+        <result column="outOfProvinceInCount" property="outOfProvinceInCount"/>
+        <result column="outOfProvinceOutCount" property="outOfProvinceOutCount"/>
+    </resultMap>
+
+    <select id="selectInformationChangeSummaryBySchool"
+            parameterType="edu.qhjy.statuschange.dto.SummaryQueryDTO"
+            resultMap="selectInformationChangeSummaryBySchoolResultMap">
+
+        SELECT
+        xx.XXMC AS xxmc,
+        ks.JB AS jb,
+        xx.KQMC AS kqmc,
+
+        COUNT(CASE WHEN j.KJYDLXBS = 3 THEN 1 END) AS keyPropertyChangeCount, -- 关键信息变更
+        COUNT(CASE WHEN j.KJYDLXBS = 2 AND x.XFXBJ = 1 THEN 1 END) AS returnSchoolCount, -- 复学
+        COUNT(CASE WHEN j.KJYDLXBS = 1 AND x.XFXBJ = 0 THEN 1 END) AS leaveSchoolCount, -- 休学
+
+        COUNT(CASE WHEN z.ZXLX = 2 THEN 1 END) AS inProvinceInCount, -- 省内转入
+        COUNT(CASE WHEN z.ZXLX = 1 THEN 1 END) AS inProvinceOutCount, -- 省内转出
+        COUNT(CASE WHEN z.ZXLX = 4 THEN 1 END) AS outOfProvinceInCount, -- 省外转入
+        COUNT(CASE WHEN z.ZXLX = 3 THEN 1 END) AS outOfProvinceOutCount -- 转出省外
+
+        FROM ksxx ks
+        LEFT JOIN kjydjl j ON ks.KSH = j.KSH
+        LEFT JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
+        LEFT JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
+        LEFT JOIN xxjbxx xx ON ks.XXMC = xx.XXMC
+
+        <where>
+            <if test="xxdm != null and xxdm != ''">
+                AND xx.XXDM = #{xxdm}
+            </if>
+            <if test="kqdm != null and kqdm != ''">
+                AND xx.KQDM = #{kqdm}
+            </if>
+            <if test="jb != null">
+                AND ks.JB = #{jb}
+            </if>
+            <if test="szsdm != null and szsdm != ''">
+                AND xx.SZSDM = #{szsdm}
+            </if>
+        </where>
+
+        GROUP BY xx.XXMC, ks.JB, xx.KQMC
+        ORDER BY xx.XXMC, ks.JB DESC
+    </select>
+
 
     <select id="selectInformationChangeByKsh" resultType="edu.qhjy.statuschange.vo.InformationChangeVO">
         SELECT CONCAT(g.GGSXMC, '变更为', g.GHZ) AS changeItem,
@@ -680,11 +765,11 @@
                j.CJSJ     AS changeTime,
                CASE j.KJYDLXBS
                    WHEN 1 THEN x.YYZMWJDZ
-                   WHEN 4 THEN z.SCWJDZ
                    WHEN 2 THEN x.YYZMWJDZ
-                   WHEN 5 THEN ls.YYZMWJDZ
+                   WHEN 4 THEN z.SCWJDZ
+                   WHEN 5 THEN NULL
                    WHEN 6 THEN NULL
-                   WHEN 7 THEN c.CGWJDZ
+                   WHEN 7 THEN NULL
                    END    AS proofMaterial
         FROM kjydjl j
                  JOIN ksxx ks ON j.KSH = ks.KSH
@@ -760,4 +845,19 @@
         ORDER BY j.SHSJ DESC -- 按审核时间倒序
         LIMIT 1
     </select>
+
+    <select id="findSchoolNameByBjbs" resultType="java.lang.String">
+        SELECT xx.XXMC
+        FROM bjxx bj
+                 JOIN xxjbxx xx ON bj.XXDM = xx.XXDM
+        WHERE BJBS = #{bjbs}
+    </select>
+
+
+    <update id="setFxkshByKjydjlbs">
+        UPDATE xfxjl
+        SET FXXJH = #{fxksh},
+            XXSC  = #{xxsc}
+        WHERE KJYDJLBS = #{kjydjlbs}
+    </update>
 </mapper>

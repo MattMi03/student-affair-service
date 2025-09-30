@@ -32,4 +32,6 @@ public interface ClassManagerMapper {
     int updateStudentBjbs(Map<String, Object> param);
 
     BjxxDTO getBjmcAndJbByBjbs(Long bjbs);
+
+    Bjxx selectByXxmcAndBjmc(String xxmc, String bjmc);
 }

@@ -22,6 +22,7 @@ public class KeyPropertyChangeListVO implements Serializable {
     private String ghz;         // 修改后的值
     private String zmwjdz;      // 证明文件地址
     private LocalDateTime czsj; // 创建时间
+    private String shjd;          // 审核节点
     private String shzt;        // 审核状态
     private String shyj;        // 审核意见
     private String mz;

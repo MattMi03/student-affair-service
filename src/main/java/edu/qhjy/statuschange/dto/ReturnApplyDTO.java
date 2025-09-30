@@ -49,19 +49,4 @@ public class ReturnApplyDTO implements Serializable {
 
     private String yyzmwjdz; // 原因证明文件地址
 
-    /**
-     * 校验复学年级是否合法，只允许 YYYY 或 YYYY级
-     * 并返回纯数字年份
-     */
-    public String getXjdnjYear() {
-        if (xjdnj == null || xjdnj.isEmpty()) {
-            throw new IllegalArgumentException("复学年级不能为空");
-        }
-        if (!xjdnj.matches("\\d{4}") && !xjdnj.matches("\\d{4}级")) {
-            throw new IllegalArgumentException("复学年级格式不合法，只能是YYYY或YYYY级，例如2024或2024级");
-        }
-        // 去掉 "级" 并转成 Integer
-        return xjdnj.replace("级", "");
-    }
-
 }

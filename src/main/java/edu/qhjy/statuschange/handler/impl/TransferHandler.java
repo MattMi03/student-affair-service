@@ -49,14 +49,17 @@ public class TransferHandler implements IStatusChangeHandler {
 
         switch (zxlx) {
             case 1: // 省内转出
+                break;
             case 2: // 省内转入
                 // 对于省内转学，无论是“转出”还是“转入”记录被触发，
                 // 最终的善后操作都是将学生的学籍信息更新到“新学校”。
+
                 log.info("执行省内转学善后：更新考生 {} 的学校信息。", ksh);
                 ksxxMapper.updateStudentSchoolInfo(
                         ksh,
                         transferDetail.getXxmc(),  // 现学校名称
                         transferDetail.getJdbj(),  // 现就读班级
+                        transferDetail.getBjbs(),
                         Integer.valueOf(transferDetail.getJdnj()) // 现就读年级
                 );
                 break;

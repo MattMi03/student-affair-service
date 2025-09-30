@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.punchin.mapper.PunchInRecordMapper">
+
+    <select id="findPlanBySemesterAndSchool" resultType="edu.qhjy.punchin.domain.Dkjh">
+        SELECT *
+        FROM dkjh
+        WHERE XNMC = #{xnmc}
+          AND XXDM = #{xxdm}
+        LIMIT 1
+    </select>
+
+    <insert id="batchInsertRecordsIgnoreDuplicates">
+        <foreach collection="list" item="item" separator=";">
+            MERGE INTO dkjl T
+            USING (
+            SELECT #{item.dkjhbs} AS DKJHBS,
+            #{item.dkrq} AS DKRQ,
+            #{item.ksh} AS KSH,
+            #{item.dksj} AS DKSJ,
+            #{item.dksb} AS DKSB,
+            #{item.dkdd} AS DKDD,
+            SYSDATE AS CJSJ
+            FROM dual
+            ) S
+            ON (T.KSH = S.KSH AND T.DKRQ = S.DKRQ)
+            WHEN NOT MATCHED THEN
+            INSERT (DKJHBS, DKRQ, KSH, DKSJ, DKSB, DKDD, CJSJ)
+            VALUES (S.DKJHBS, S.DKRQ, S.KSH, S.DKSJ, S.DKSB, S.DKDD, S.CJSJ)
+        </foreach>
+    </insert>
+
+    <select id="findPunchInTasksForPage" resultType="edu.qhjy.punchin.vo.PunchInRecordListVO">
+        SELECT
+        -- 状态优先级：请假 > 已打卡 > 未打卡
+        CASE
+        WHEN qjjl.QJJLBS IS NOT NULL THEN '请假'
+        WHEN dkjl.DKJLBS IS NOT NULL THEN '已打卡'
+        ELSE '未打卡'
+        END AS status,
+        dates.PUNCH_DATE AS dkrq,
+        dkjl.DKSJ AS dksj,
+        dkjl.DKSB AS dksb,
+        ks.XM AS xm,
+        ks.KSH AS ksh,
+        ks.SFZJH AS sfzjh,
+        school.XXMC AS xxmc
+        FROM dkjh plan
+        JOIN xxjbxx school ON school.XXDM = plan.XXDM
+        JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
+        JOIN ksxx ks ON ks.XXMC = school.XXMC
+        LEFT JOIN dkjl
+        ON ks.KSH = dkjl.KSH
+        AND dates.PUNCH_DATE = dkjl.DKRQ
+        AND plan.DKJHBS = dkjl.DKJHBS
+        -- 【新增】请假关联
+        LEFT JOIN qjjl
+        ON qjjl.KSH = ks.KSH
+        AND qjjl.DKJHBS = plan.DKJHBS
+        AND dates.PUNCH_DATE BETWEEN qjjl.KSRQ AND qjjl.JSRQ
+        AND qjjl.SHZT = '通过'
+        LEFT JOIN kqxx area ON school.KQDM = area.KQDM
+        <where>
+            AND dates.PUNCH_DATE &lt;= CURDATE()
+            AND ks.KJZTMC = '正常在校'
+            <if test="xnmc != null and xnmc != ''">
+                AND plan.XNMC = #{xnmc}
+            </if>
+            <if test="xxdm != null and xxdm != ''">
+                AND plan.XXDM = #{xxdm}
+            </if>
+            <if test="(xxdm == null or xxdm == '') and kqdm != null and kqdm != ''">
+                AND area.KQDM = #{kqdm}
+            </if>
+            <if test="jb != null and jb != ''">
+                AND ks.JB = #{jb}
+            </if>
+            <if test="bjbs != null">
+                AND ks.BJBS = #{bjbs}
+            </if>
+        </where>
+        ORDER BY dates.PUNCH_DATE, ks.KSH
+    </select>
+
+    <!-- 批量根据考生号查学校代码 -->
+    <select id="findSchoolCodesByKshList" resultType="java.util.Map">
+        SELECT k.KSH, x.XXDM
+        FROM ksxx k
+        JOIN xxjbxx x ON k.XXMC = x.XXMC
+        WHERE k.KSH IN
+        <foreach collection="kshList" item="ksh" open="(" separator="," close=")">
+            #{ksh}
+        </foreach>
+    </select>
+
+    <!-- 批量查计划 -->
+    <select id="findPlansBySemesterAndSchools" resultType="edu.qhjy.punchin.domain.Dkjh">
+        SELECT *
+        FROM dkjh
+        WHERE XNMC = #{xnmc}
+        AND XXDM IN
+        <foreach collection="xxdmList" item="xxdm" open="(" separator="," close=")">
+            #{xxdm}
+        </foreach>
+    </select>
+
+    <!-- 批量查计划日期 -->
+    <select id="findPlanDatesByPlanIds" resultType="java.util.Map">
+        SELECT DKJHBS, PUNCH_DATE
+        FROM dkjh_dates
+        WHERE DKJHBS IN
+        <foreach collection="planIds" item="planId" open="(" separator="," close=")">
+            #{planId}
+        </foreach>
+        ORDER BY DKJHBS, PUNCH_DATE
+    </select>
+
+    <select id="findLeaveApplicationsForPage" resultType="edu.qhjy.punchin.vo.LeaveApplicationListVO">
+        SELECT
+        q.QJJLBS AS qjjlbs,
+        q.KSH AS ksh,
+        s.XM AS xm,
+        s.SFZJH AS sfzjh,
+        s.XXMC AS xxmc,
+        q.KSRQ AS ksrq,
+        q.JSRQ AS jsrq,
+        q.SHZT AS shzt,
+        q.SHYJ AS shyj,
+        q.ZMCLLB AS zmcllb
+        FROM
+        qjjl q
+        JOIN
+        ksxx s ON q.KSH = s.KSH
+        -- 【新增】为了按学期名称筛选，需要关联打卡计划表
+        LEFT JOIN
+        dkjh d ON q.DKJHBS = d.DKJHBS
+        -- 【新增】为了按考区和学校代码筛选，需要关联学校和考区信息
+        LEFT JOIN
+        xxjbxx school ON s.XXMC = school.XXMC
+        LEFT JOIN
+        kqxx area ON school.KQDM = area.KQDM
+        <where>
+            <if test="xnmc != null and xnmc != ''">
+                AND d.XNMC = #{xnmc}
+            </if>
+            <if test="kqdm != null and kqdm != ''">
+                AND area.KQDM = #{kqdm}
+            </if>
+            <if test="xxdm != null and xxdm != ''">
+                AND school.XXDM = #{xxdm}
+            </if>
+            <if test="jb != null">
+                AND s.JB = #{jb}
+            </if>
+            <if test="bjbs != null">
+                AND s.BJBS = #{bjbs}
+            </if>
+        </where>
+        ORDER BY q.SQSJ DESC
+    </select>
+
+    <select id="findLeaveApplicationById" resultType="edu.qhjy.punchin.domain.Qjjl">
+        SELECT *
+        FROM qjjl
+        WHERE QJJLBS = #{qjjlbs}
+    </select>
+
+    <insert id="insertLeaveApplication" parameterType="edu.qhjy.punchin.domain.Qjjl" useGeneratedKeys="true"
+            keyProperty="qjjlbs">
+        INSERT INTO qjjl (KSH, DKJHBS, QJSY, KSRQ, JSRQ, ZMCLLB, SHJD, SHZT, SQSJ)
+        VALUES (#{ksh}, #{dkjhbs}, #{qjsy}, #{ksrq}, #{jsrq}, #{zmcllb}, '待审核', '待审核', NOW())
+    </insert>
+
+    <update id="updateLeaveApplication" parameterType="edu.qhjy.punchin.domain.Qjjl">
+        UPDATE qjjl
+        SET SHZT  = #{shzt},
+            SHYJ  = #{shyj},
+            SHRXM = #{shrxm},
+            SHSJ  = #{shsj}
+        WHERE QJJLBS = #{qjjlbs}
+    </update>
+
+    <select id="findSchoolCodeByStudentId" resultType="java.lang.String">
+        SELECT xx.XXDM
+        FROM xxjbxx xx
+                 JOIN ksxx ks ON xx.XXMC = ks.XXMC
+        WHERE ks.KSH = #{ksh}
+        LIMIT 1
+    </select>
+
+
+    <select id="findPunchInStats" resultType="edu.qhjy.punchin.vo.PunchInStatsVO">
+        -- 使用 WITH 子句（CTE）来构建两个独立的统计维度
+        WITH
+        -- 第一部分：计算基于“天”的统计（出勤、总人天次）
+        daily_stats AS (
+        SELECT
+        ks.JB,
+        plan.XNMC,
+        school.XXDM,
+        school.XXMC,
+        area.KQMC,
+        -- 计算实际出勤的人天次
+        SUM(CASE WHEN dkjl.DKJLBS IS NOT NULL THEN 1 ELSE 0 END) AS attendance_person_days,
+        -- 计算总的应出勤人天次
+        COUNT(ks.KSH) AS total_person_days
+        FROM
+        (
+        SELECT KSH, JB, XXMC, BJBS FROM ksxx WHERE KJZTMC = '正常在校'
+        <if test="jb != null and jb != ''">AND JB = #{jb}</if>
+        <if test="bjbs != null">AND BJBS = #{bjbs}</if>
+        ) ks
+        JOIN xxjbxx school ON ks.XXMC = school.XXMC
+        <if test="xxdm != null and xxdm != ''">AND school.XXDM = #{xxdm}</if>
+        JOIN dkjh plan ON school.XXDM = plan.XXDM
+        <if test="xnmc != null and xnmc != ''">AND plan.XNMC = #{xnmc}</if>
+        JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
+        LEFT JOIN dkjl ON ks.KSH = dkjl.KSH AND dates.PUNCH_DATE = dkjl.DKRQ AND plan.DKJHBS = dkjl.DKJHBS
+        LEFT JOIN kqxx area ON school.KQDM = area.KQDM
+        <if test="kqdm != null and kqdm != ''">AND area.KQDM = #{kqdm}</if>
+        WHERE dates.PUNCH_DATE &lt;= CURDATE()
+        GROUP BY ks.JB, plan.XNMC, school.XXDM, school.XXMC, area.KQMC
+        ),
+        -- 第二部分：计算基于“请假单”的统计（不关联日期表）
+        leave_stats AS (
+        SELECT
+        ks.JB,
+        plan.XNMC,
+        school.XXDM,
+        -- 只统计已批准的、不重复的请假单数量
+        COUNT(DISTINCT qjjl.QJJLBS) as leave_request_count
+        FROM
+        (
+        SELECT KSH, JB, XXMC, BJBS FROM ksxx WHERE KJZTMC = '正常在校'
+        <if test="jb != null and jb != ''">AND JB = #{jb}</if>
+        <if test="bjbs != null">AND BJBS = #{bjbs}</if>
+        ) ks
+        JOIN xxjbxx school ON ks.XXMC = school.XXMC
+        <if test="xxdm != null and xxdm != ''">AND school.XXDM = #{xxdm}</if>
+        JOIN dkjh plan ON school.XXDM = plan.XXDM
+        <if test="xnmc != null and xnmc != ''">AND plan.XNMC = #{xnmc}</if>
+        -- 直接关联请假表，不通过日期表
+        JOIN qjjl ON ks.KSH = qjjl.KSH AND plan.DKJHBS = qjjl.DKJHBS
+        WHERE qjjl.SHZT = '通过'
+        GROUP BY ks.JB, plan.XNMC, school.XXDM
+        )
+        -- 最后，将两份统计数据合并成最终报表
+        SELECT
+        ds.JB AS jb,
+        ds.XNMC AS xnmc,
+        ds.KQMC AS kqmc,
+        ds.XXMC AS xxmc,
+        ds.XXDM AS xxdm,
+        ds.attendance_person_days AS attendanceCount,
+        -- 如果 leave_stats 中没有匹配项，则请假数为0
+        COALESCE(ls.leave_request_count, 0) AS leaveCount,
+        -- 缺勤人天次 = 总应出勤人天次 - 实际出勤人天次
+        (ds.total_person_days - ds.attendance_person_days) AS absenceCount
+        FROM
+        daily_stats ds
+        LEFT JOIN
+        leave_stats ls ON ds.JB = ls.JB AND ds.XNMC = ls.XNMC AND ds.XXDM = ls.XXDM
+        ORDER BY
+        jb, xnmc, kqmc, xxmc
+    </select>
+
+    <select id="findPunchInStatsDetail" resultType="edu.qhjy.punchin.vo.PunchInStatsDetailVO">
+        SELECT
+        ks.KSH,
+        ks.XM,
+        ks.SFZJH,
+        ks.XXMC,
+        ks.BJMC,
+        dates.PUNCH_DATE AS dkrq,
+        CASE
+        WHEN qjjl.QJJLBS IS NOT NULL THEN '请假'
+        ELSE '缺勤'
+        END AS status
+        FROM
+        dkjh plan
+        JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
+        LEFT JOIN xxjbxx school ON plan.XXDM = school.XXDM
+        JOIN ksxx ks ON school.XXMC = ks.XXMC
+        LEFT JOIN dkjl ON ks.KSH = dkjl.KSH
+        AND dates.PUNCH_DATE = dkjl.DKRQ
+        AND plan.DKJHBS = dkjl.DKJHBS
+        LEFT JOIN qjjl ON ks.KSH = qjjl.KSH
+        AND dates.PUNCH_DATE BETWEEN qjjl.KSRQ AND qjjl.JSRQ
+        AND qjjl.SHZT = '通过'
+        <where>
+            dates.PUNCH_DATE &lt;= CURDATE()
+            AND ks.KJZTMC = '正常在校'
+            AND dkjl.DKJLBS IS NULL       <!-- 只查没打卡的 -->
+            <if test="xnmc != null and xnmc != ''">
+                AND plan.XNMC = #{xnmc}
+            </if>
+            <if test="xxdm != null and xxdm != ''">
+                AND school.XXDM = #{xxdm}
+            </if>
+            <if test="jb != null and jb != ''">
+                AND ks.JB = #{jb}
+            </if>
+            <if test="bjbs != null">
+                AND ks.BJBS = #{bjbs}
+            </if>
+        </where>
+        ORDER BY dates.PUNCH_DATE DESC, ks.KSH
+    </select>
+
+</mapper>

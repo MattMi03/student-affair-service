@@ -19,29 +19,32 @@
     <select id="selectList" parameterType="edu.qhjy.student.dto.classmanager.ClassQueryDTO"
             resultMap="ClassVOResultMap">
         SELECT
-        s.SZSDM AS szsdm,
-        s.KQDM AS kqdm,
-        s.XXDM AS xxdm,
-        k.KQMC AS kqmc,
-        s.XXMC AS xxmc,
+        szs.DM AS szsdm,
+        k.DM AS kqdm,
+        s.DM AS xxdm,
+        s.MC AS xxmc,
         b.BJBS AS bjbs,
         b.BJMC AS bjmc,
-        b.jb AS jb,
+        b.JB AS jb,
         b.BZRXM AS bzrxm,
         b.BJLX AS bjlx,
         b.YSYZ AS ysyz,
         b.MZYYSKYZ AS mzyyskyz,
-        k.SSXZQHMC as szsmc
+        szs.MC AS szsmc,
+        k.MC AS kqmc
         FROM
-        bjxx b
-        LEFT JOIN xxjbxx s ON b.XXDM = s.XXDM
-        LEFT JOIN kqxx k ON s.KQDM = k.KQDM
+        BJXX b
+        JOIN XYZDK s ON b.XXDM = s.DM AND s.JH = 'ZX'   -- 学校
+        JOIN XYZDK k ON b.XXDM LIKE k.DM || '%' AND k.JH = 'KD'  -- 考区
+        JOIN XYZDK szs ON b.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ'  -- 地市
         <where>
-            <if test="jb != null">AND b.jb = #{jb}</if>
-            <if test="xxdm != null and xxdm != ''">AND s.XXDM = #{xxdm}</if>
-            <if test="kqdm != null and kqdm != ''">AND s.KQDM = #{kqdm}</if>
-            <if test="szsdm != null and szsdm != ''">AND s.SZSDM = #{szsdm}</if>
+            <if test="jbny != null">AND b.JB = #{jbny}</if>
+            <if test="xxdm != null and xxdm != ''">AND s.DM = #{xxdm}</if>
+            <if test="kqdm != null and kqdm != ''">AND k.DM = #{kqdm}</if>
+            <if test="szsdm != null and szsdm != ''">AND szs.DM = #{szsdm}</if>
         </where>
+        ORDER BY
+        s.DM, b.JB, b.BJMC
     </select>
 
     <select id="selectById" parameterType="java.lang.Long" resultType="edu.qhjy.student.domain.Bjxx">
@@ -96,9 +99,10 @@
                ks.XM,
                bj.BJMC
         FROM ksxx ks
-                 INNER JOIN xxjbxx xx ON ks.XXMC = xx.XXMC
-                 INNER JOIN bjxx bj ON xx.XXDM = bj.XXDM
+                 INNER JOIN xyzdk xx ON ks.XXDM = xx.DM AND xx.JH = 'ZX'
+                 INNER JOIN bjxx bj ON xx.DM = bj.XXDM
         WHERE bj.BJBS = #{bjbs}
+          AND ks.KJZTMC = '正常在校'
     </select>
 
     <update id="clearStudentsFromClass" parameterType="long">
@@ -126,5 +130,13 @@
             #{ksh}
         </foreach>
     </update>
+
+    <select id="selectByXxmcAndBjmc" resultType="edu.qhjy.student.domain.Bjxx" parameterType="map">
+        SELECT bj.*
+        FROM bjxx bj
+                 LEFT JOIN xxjbxx xx ON bj.XXDM = xx.XXDM
+        WHERE xx.XXMC = #{xxmc}
+          AND bj.BJMC = #{bjmc}
+    </select>
 
 </mapper>

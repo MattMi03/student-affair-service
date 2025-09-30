@@ -73,6 +73,11 @@ public class Xfxjl implements Serializable {
     private String xbjmc;
 
     /**
+     * 新班级标识id
+     */
+    private Long xbjbs;
+
+    /**
      * 新就读年级
      */
     private String xjdnj;

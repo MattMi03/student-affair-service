@@ -27,6 +27,11 @@ public class Zxjl implements Serializable {
 
     private String scwjdz;
 
+
+    private String jdsqzmwjdz; // 就读申请证明文件地址
+    private String mbxxlqzmwjdz; // 目标学校录取证明文件地址
+    private String swjdsxbawjdz; // 省外就读手续备案文件地址
+
     /**
      * 转出原因
      */
@@ -86,6 +91,8 @@ public class Zxjl implements Serializable {
      * 现就读年级
      */
     private String jdnj;
+
+    private Long bjbs;
 
     /**
      * 就读班级

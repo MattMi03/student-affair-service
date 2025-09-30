@@ -52,11 +52,11 @@ public class WorkflowServiceImpl implements IWorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResultDTO processAudit(Long businessKey, String databaseName, String tableName, String applicantKsh, AuditRequestDTO dto, UserInfo currentUser) {
+    public WorkflowResultDTO processAudit(Long businessKey, String tableName, String applicantKsh, AuditRequestDTO dto, UserInfo currentUser) {
 
         currentUser.setDzm(workflowMapper.findDzmByDm(currentUser.getDm()));
         // 1. 获取流程定义
-        AuditFlow flow = workflowMapper.findFlowByDatabaseNamAndTableName(databaseName, tableName);
+        AuditFlow flow = workflowMapper.findFlowByTableName(tableName);
         if (flow == null) throw new IllegalArgumentException("未配置的审核业务: " + tableName);
 
         // 2. 查找最新日志，确定当前进行到哪一步
@@ -95,21 +95,18 @@ public class WorkflowServiceImpl implements IWorkflowService {
         if ("驳回".equals(dto.getDecision())) {
             return new WorkflowResultDTO(nextStep.getAuditFlowDe2(), "驳回");
         } else { // 审核通过
+
+            // 查找最终步骤
             AuditFlowDetail finalStep = workflowMapper.findFinalStepOfFlow(flow.getAuditFlowID());
             int userLevel = Integer.parseInt(currentUser.getGroupId());
             int finalLevel = Integer.parseInt(finalStep.getAuditGroupI());
 
-            if (userLevel >= finalLevel) {
-                // 如果当前用户的级别 >= 整个流程的最高要求级别，直接终审通过
-                return new WorkflowResultDTO(finalStep.getAuditFlowDe2(), "通过");
-            }
-
-            // 【常规流转】检查通过后是否还有更下一步
+            // 查找再下一步
             AuditFlowDetail stepAfterNext = workflowMapper.findFlowDetailByFlowIdAndStepOrder(flow.getAuditFlowID(), nextStepOrder + 1);
-            if (stepAfterNext == null) {
-                // 如果下一步就是最后一步，正常终审通过。
-                // 阶段设置为当前（也是最后）阶段，状态为通过。
-                return new WorkflowResultDTO(nextStep.getAuditFlowDe2(), "通过");
+
+            // 如果当前用户的级别 >= 整个流程的最高要求级别，或者没有更下一步了，则流程结束, 设置阶段为最终阶段，状态为通过。
+            if (userLevel >= finalLevel || stepAfterNext == null) {
+                return new WorkflowResultDTO(finalStep.getAuditFlowDe2(), "通过");
             } else {
                 // 如果还有更下一步，正常流转。
                 // 阶段设置为下一步的阶段，最终状态为null表示流程继续。
@@ -151,7 +148,7 @@ public class WorkflowServiceImpl implements IWorkflowService {
         }
 
         if (!hasRegionPermission) {
-            throw new SecurityException("权限不足：您无权审核该学生的申请");
+            throw new IllegalStateException("您无权审核该学生的申请，可能是因为学生不属于您的管理区划");
         }
     }
 }

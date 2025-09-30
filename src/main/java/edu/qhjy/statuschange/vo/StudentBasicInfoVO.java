@@ -12,6 +12,8 @@ public class StudentBasicInfoVO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     // 核心信息
+    private String ksh;        // 考生号
+    private String kjztmc; // 考籍状态名称
     private String xm;          // 姓名
     private String xb;          // 性别
     private String mz;          // 民族

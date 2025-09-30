@@ -3,8 +3,11 @@ package edu.qhjy.statuschange.mapper;
 import edu.qhjy.statuschange.domain.*;
 import edu.qhjy.statuschange.dto.BasicInfoQueryDTO;
 import edu.qhjy.statuschange.dto.CommonQueryDTO;
+import edu.qhjy.statuschange.dto.SummaryQueryDTO;
+import edu.qhjy.statuschange.dto.delete.KjydjlRecordDTO;
 import edu.qhjy.statuschange.vo.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -25,7 +28,18 @@ public interface StatusChangeMapper {
     // 复学申请
     List<ReturnAuditListVO> selectReturnList(CommonQueryDTO queryDTO);
 
+    /**
+     * 更新 xfxjl 表的记录
+     *
+     * @param xfxjl 包含最新数据的实体
+     * @return 更新的行数
+     */
+    int updateXfxjlDetails(Xfxjl xfxjl);
+
     // 转学申请
+
+    void updateZxjlDetails(Zxjl resumptionDetail);
+
     List<TransferAuditListVO> getTransfer(
             @Param("common") CommonQueryDTO commonQueryDTO,
             @Param("zxlx") Long zxlx
@@ -52,7 +66,7 @@ public interface StatusChangeMapper {
     // 公共方法
     void insertKjydjl(Kjydjl Kjydjl);
 
-    Long getKjydlxbsByKjydjlbs(Long kjydjlbs);
+    KjydjlRecordDTO getKjydlxbsByKjydjlbs(Long kjydjlbs);
 
     void deleteXfxjlByKjydjlbs(Long kjydjlbs);
 
@@ -66,6 +80,8 @@ public interface StatusChangeMapper {
 
     // 统计相关
     List<InformationChangeSummaryVO> selectInformationChangeSummary(CommonQueryDTO queryDTO);
+
+    List<InformationChangeSummaryBySchoolVO> selectInformationChangeSummaryBySchool(SummaryQueryDTO queryDTO);
 
     Xfxjl getLatestXfxjlByKjydjlbs(@NotBlank(message = "考生号不能为空") String ksh);
 
@@ -138,5 +154,14 @@ public interface StatusChangeMapper {
      * @return 最新的 xfxjl 记录
      */
     Xfxjl findLatestEffectiveSuspensionOrResumption(@Param("ksh") String ksh);
+
+    String findSchoolNameByBjbs(@NotNull(message = "新班级不能为空") Long xbjbs);
+
+    void setFxkshByKjydjlbs(Long kjydjlbs, String fxksh, String xxsc);
+
+    int findIfExistByKsh(@NotBlank(message = "考生号不能为空") String ksh);
+
+    int findIfSchoolExistBySchoolName(String xxmc);
+
 }
 

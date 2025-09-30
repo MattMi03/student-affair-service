@@ -20,6 +20,7 @@ public class AttritionListVO implements Serializable {
     private String lsyy;        // 流失原因
     private LocalDate lssj;     // 流失时间
     private LocalDateTime czsj; // 操作时间 (即申请创建时间)
+    private String shjd;          // 审核节点
     private String shzt;        // 审核状态
     private String shyj;        // 审核意见
     private String mz;

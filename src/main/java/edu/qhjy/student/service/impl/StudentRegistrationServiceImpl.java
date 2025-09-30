@@ -12,6 +12,8 @@ import edu.qhjy.student.mapper.StudentRegistrationMapper;
 import edu.qhjy.student.service.StudentRegistrationService;
 import edu.qhjy.student.vo.StatisticsVO;
 import edu.qhjy.student.vo.StudentListVO;
+import edu.qhjy.util.IdCardUtils;
+import edu.qhjy.util.MobileValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,6 +92,9 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         studentToAudit.setShyj(auditRequestDTO.getShyj());
         studentToAudit.setShrxm("当前登录管理员姓名"); // TODO: 从Spring Security上下文中获取
         studentToAudit.setShsj(java.time.LocalDateTime.now());
+        if ("通过".equals(auditRequestDTO.getShzt())) {
+            studentToAudit.setShjd("入库成功");
+        }
 
         registrationMapper.updateStudentInfo(studentToAudit);
     }
@@ -158,6 +163,8 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     public void createRegistrationByStudent(String ksh, RegistrationInfoDTO registrationInfo) {
         if (registrationInfo.getStudentInfo() != null) {
             registrationInfo.getStudentInfo().setKsh(ksh); // 确保KSH来自认证信息
+        } else {
+            throw new IllegalArgumentException("考生基本信息不能为空");
         }
         createRegistration(registrationInfo);
     }
@@ -167,7 +174,10 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     public void updateRegistrationByStudent(String ksh, RegistrationInfoDTO registrationInfo) {
         if (registrationInfo.getStudentInfo() != null) {
             registrationInfo.getStudentInfo().setKsh(ksh); // 确保KSH来自认证信息
+        } else {
+            throw new IllegalArgumentException("考生基本信息不能为空");
         }
+
         updateRegistration(ksh, registrationInfo);
     }
 
@@ -185,15 +195,33 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
             throw new IllegalStateException("该考生号 " + ksh + " 已存在，请勿重复提交");
         }
 
+        studentInfo.setCsrq(IdCardUtils.getBirthday(studentInfo.getSfzjh()));
+        studentInfo.setXb(IdCardUtils.getGender(studentInfo.getSfzjh()));
+
         Ksxx ksxx = convertToKsxx(studentInfo);
 
-        Bjxx bjxx = classManagerMapper.selectById(ksxx.getBjbs());
+        Bjxx bjxx = null;
 
-        ksxx.setYsyz(bjxx.getYsyz());
-        ksxx.setMzyyskyz(bjxx.getMzyyskyz());
+        if (studentInfo.getBjbs() == null) {
+            if (studentInfo.getXxmc() != null && studentInfo.getBjmc() != null) {
+                bjxx = classManagerMapper.selectByXxmcAndBjmc(studentInfo.getXxmc(), studentInfo.getBjmc());
+                if (bjxx == null) {
+                    throw new IllegalArgumentException("学校名称或班级名称有误，无法找到对应班级信息, 请核对后重新提交, 如未分班暂不填写");
+                }
+            }
+        } else {
+            bjxx = classManagerMapper.selectById(ksxx.getBjbs());
+        }
+
+
+        if (bjxx != null) {
+            ksxx.setYsyz(bjxx.getYsyz());
+            ksxx.setMzyyskyz(bjxx.getMzyyskyz());
+            ksxx.setBjbs(bjxx.getBjbs());
+            ksxx.setBjmc(bjxx.getBjmc());
+        }
         ksxx.setShzt("已提交待审核");
 
-        System.out.println("创建报名信息: " + ksxx);
         registrationMapper.insertStudentInfo(ksxx);
 
         insertSubTableInfo(registrationInfo, ksh);
@@ -207,13 +235,34 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
 
         registrationInfo.getStudentInfo().setKsh(ksh); // 确保KSH来自认证信息
 
-        // 2. 更新考生主信息
+        registrationInfo.getStudentInfo().setCsrq(IdCardUtils.getBirthday(registrationInfo.getStudentInfo().getSfzjh()));
+        registrationInfo.getStudentInfo().setXb(IdCardUtils.getGender(registrationInfo.getStudentInfo().getSfzjh()));
+
         Ksxx ksxx = convertToKsxx(registrationInfo.getStudentInfo());
 
-        Bjxx bjxx = classManagerMapper.selectById(ksxx.getBjbs());
+        Bjxx bjxx = null;
 
-        ksxx.setYsyz(bjxx.getYsyz());
-        ksxx.setMzyyskyz(bjxx.getMzyyskyz());
+        StudentInfoDTO studentInfo = registrationInfo.getStudentInfo();
+
+        if (studentInfo.getBjbs() == null) {
+            if (studentInfo.getXxmc() != null && studentInfo.getBjmc() != null) {
+                bjxx = classManagerMapper.selectByXxmcAndBjmc(studentInfo.getXxmc(), studentInfo.getBjmc());
+                if (bjxx == null) {
+                    throw new IllegalArgumentException("学校名称或班级名称有误，无法找到对应班级信息, 请核对后重新提交");
+                }
+            }
+        } else {
+            bjxx = classManagerMapper.selectById(ksxx.getBjbs());
+        }
+
+        // 2. 更新考生主信息
+
+        if (bjxx != null) {
+            ksxx.setYsyz(bjxx.getYsyz());
+            ksxx.setMzyyskyz(bjxx.getMzyyskyz());
+            ksxx.setBjbs(bjxx.getBjbs());
+            ksxx.setBjmc(bjxx.getBjmc());
+        }
         registrationMapper.updateStudentInfo(ksxx);
 
         // 3. 删除旧的子表信息
@@ -230,6 +279,10 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
             List<Jhrxx> guardianEntities = guardians.stream()
                     .map(dto -> convertToJhrxx(dto, ksh))
                     .collect(Collectors.toList());
+            for (Jhrxx jhrxx : guardianEntities) {
+                IdCardUtils.validate(jhrxx.getSfzjh());
+                MobileValidator.validateOrThrow(jhrxx.getYddh());
+            }
             registrationMapper.insertGuardians(guardianEntities);
         }
 

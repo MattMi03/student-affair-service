@@ -4,6 +4,8 @@ import com.github.pagehelper.PageInfo;
 import edu.qhjy.common.Result;
 import edu.qhjy.statuschange.dto.*;
 import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
+import edu.qhjy.statuschange.dto.audit.ResumptionUpdateDTO;
+import edu.qhjy.statuschange.dto.audit.TransUpdateDTO;
 import edu.qhjy.statuschange.dto.audit.UserInfo;
 import edu.qhjy.statuschange.service.StatusChangeService;
 import edu.qhjy.statuschange.vo.*;
@@ -89,7 +91,45 @@ public class AdminStatusChangeController {
         return Result.success(statusChangeService.listReturnApplications(queryDTO));
     }
 
+    /**
+     * 【新增】为复学申请补充新年级和新班级信息
+     *
+     * @param kjydjlbs 考籍异动记录的ID
+     * @param dto      包含新年级和新班级的数据
+     * @return 成功响应
+     */
+    @PutMapping("/return-school/{kjydjlbs}")
+    @Operation(summary = "补充复学申请信息", description = "在审核前，由管理员为复学申请填入分配好的新年级和新班级。")
+    public Result<Void> updateResumptionDetails(
+            @PathVariable Long kjydjlbs,
+            @Validated @RequestBody ResumptionUpdateDTO dto) {
+
+        // 调用Service层执行更新操作
+        statusChangeService.updateResumptionDetails(kjydjlbs, dto);
+        return Result.success("复学信息补充成功");
+    }
+
+
     // 转学相关
+
+    /**
+     * 【新增】为复学申请补充新年级和新班级信息
+     *
+     * @param kjydjlbs 考籍异动记录的ID
+     * @param dto      包含新年级和新班级的数据
+     * @return 成功响应
+     */
+    @PutMapping("/transfers/{kjydjlbs}")
+    @Operation(summary = "补充转学申请信息", description = "在审核前，由管理员为转学申请填入分配好的新班级。")
+    public Result<Void> updateTransfersDetails(
+            @PathVariable Long kjydjlbs,
+            @Validated @RequestBody TransUpdateDTO dto) {
+
+        // 调用Service层执行更新操作
+        statusChangeService.updateTransDetails(kjydjlbs, dto);
+        return Result.success("复学信息补充成功");
+    }
+
     @GetMapping("/transfers/in-province-out")
     @Operation(summary = "查询【省内转出】申请列表")
     public Result<PageInfo<TransferAuditListVO>> listInProvinceOutTransfers(CommonQueryDTO queryDTO) {
@@ -189,6 +229,13 @@ public class AdminStatusChangeController {
     @Operation(summary = "查询信息变更统计列表")
     public Result<PageInfo<InformationChangeSummaryVO>> listInformationChangeSummary(CommonQueryDTO queryDTO) {
         return Result.success(statusChangeService.listInformationChangeSummary(queryDTO));
+    }
+
+    // 统计按学校
+    @GetMapping("/summary-by-school")
+    @Operation(summary = "查询信息变更统计列表（按学校）")
+    public Result<PageInfo<InformationChangeSummaryBySchoolVO>> listInformationChangeSummaryBySchool(SummaryQueryDTO queryDTO) {
+        return Result.success(statusChangeService.listInformationChangeSummaryBySchool(queryDTO));
     }
 
     // 公共删除方法

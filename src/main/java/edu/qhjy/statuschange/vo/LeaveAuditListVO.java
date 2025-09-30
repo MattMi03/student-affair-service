@@ -71,6 +71,8 @@ public class LeaveAuditListVO implements Serializable {
      */
     private String shzt;
 
+    private String shjd;          // 审核节点
+
     /**
      * 审核意见
      */

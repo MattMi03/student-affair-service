@@ -3,6 +3,8 @@ package edu.qhjy.statuschange.service;
 import com.github.pagehelper.PageInfo;
 import edu.qhjy.statuschange.dto.*;
 import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
+import edu.qhjy.statuschange.dto.audit.ResumptionUpdateDTO;
+import edu.qhjy.statuschange.dto.audit.TransUpdateDTO;
 import edu.qhjy.statuschange.dto.audit.UserInfo;
 import edu.qhjy.statuschange.vo.*;
 
@@ -27,8 +29,18 @@ public interface StatusChangeService {
 
     PageInfo<ReturnAuditListVO> listReturnApplications(CommonQueryDTO queryDTO);
 
+    /**
+     * 更新复学申请的详情（补充新年级和班级）
+     *
+     * @param kjydjlbs 考籍异动记录ID
+     * @param dto      包含更新数据的DTO
+     */
+    void updateResumptionDetails(Long kjydjlbs, ResumptionUpdateDTO dto);
+
 
     // --- 转学相关接口 ---
+    void updateTransDetails(Long kjydjlbs, TransUpdateDTO dto);
+
     PageInfo<TransferAuditListVO> getTransfer(CommonQueryDTO commonQueryDTO, Long zxlx);
 
     void applyTransfer(TransferApplyDetailDTO transferApplyDetailDTO, Long zxlx);
@@ -53,6 +65,8 @@ public interface StatusChangeService {
 
     // --- 统计相关接口 ---
     PageInfo<InformationChangeSummaryVO> listInformationChangeSummary(CommonQueryDTO queryDTO);
+
+    PageInfo<InformationChangeSummaryBySchoolVO> listInformationChangeSummaryBySchool(SummaryQueryDTO queryDTO);
 
     /**
      * 根据ksh查询信息变更列表

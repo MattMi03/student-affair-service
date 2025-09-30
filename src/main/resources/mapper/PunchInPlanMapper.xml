@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.punchin.mapper.PunchInPlanMapper">
+
+    <select id="findForPage" resultType="edu.qhjy.punchin.vo.PunchInPlanListVO">
+        SELECT
+        d.DKJHBS,
+        d.XNMC,
+        d.XQKSRQ,
+        d.XQJZRQ,
+        school.MC AS xxmc,
+        kq.MC AS kqmc
+        FROM
+        dkjh d
+        LEFT JOIN XYZDK school
+        ON d.XXDM = school.DM AND school.JH = 'ZX'   -- 学校
+        LEFT JOIN XYZDK kq
+        ON d.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD'  -- 区县/考区
+        <where>
+            <if test="kqdm != null and kqdm != ''">
+                AND kq.DM = #{kqdm}
+            </if>
+            <if test="xxdm != null and xxdm != ''">
+                AND d.XXDM = #{xxdm}
+            </if>
+            <if test="xnmc != null and xnmc != ''">
+                AND d.XNMC LIKE CONCAT('%', #{xnmc}, '%')
+            </if>
+        </where>
+        ORDER BY d.XQKSRQ DESC
+    </select>
+
+    <select id="findById" resultType="edu.qhjy.punchin.domain.Dkjh">
+        SELECT *
+        FROM dkjh
+        WHERE DKJHBS = #{dkjhbs}
+    </select>
+
+    <insert id="insertPlan" useGeneratedKeys="true" keyProperty="dkjhbs">
+        INSERT INTO dkjh (XNMC, XQKSRQ, XQJZRQ, XXDM, CJSJ, SHZT)
+        VALUES (#{xnmc}, #{xqksrq}, #{xqjzrq}, #{xxdm}, NOW(), '待审核')
+    </insert>
+
+    <insert id="batchInsertPlanDates">
+        INSERT INTO dkjh_dates (DKJHBS, PUNCH_DATE)
+        VALUES
+        <foreach collection="punchDates" item="pdate" separator=",">
+            (#{dkjhbs}, #{pdate})
+        </foreach>
+    </insert>
+
+    <update id="updatePlan" parameterType="edu.qhjy.punchin.domain.Dkjh">
+        UPDATE dkjh
+        SET XNMC   = #{xnmc},
+            XQKSRQ = #{xqksrq},
+            XQJZRQ = #{xqjzrq},
+            GXSJ   = NOW()
+        WHERE DKJHBS = #{dkjhbs}
+    </update>
+
+    <delete id="deletePlanDatesByPlanId">
+        DELETE
+        FROM dkjh_dates
+        WHERE DKJHBS = #{dkjhbs}
+    </delete>
+
+    <delete id="deletePlanById">
+        DELETE
+        FROM dkjh
+        WHERE DKJHBS = #{dkjhbs}
+    </delete>
+
+    <select id="findSchoolCountByCode" resultType="int">
+        SELECT COUNT(*)
+        FROM xyzdk
+        WHERE DM = #{xxdm}
+    </select>
+
+    <select id="findBySubmitDTO" resultType="edu.qhjy.punchin.domain.Dkjh">
+        SELECT *
+        FROM dkjh
+        WHERE XXDM = #{xxdm}
+          AND XNMC = #{xnmc}
+    </select>
+
+    <select id="findPlanDatesByPlanId" resultType="java.time.LocalDate">
+        SELECT PUNCH_DATE
+        FROM dkjh_dates
+        WHERE DKJHBS = #{dkjhbs}
+        ORDER BY PUNCH_DATE ASC
+    </select>
+
+    <select id="findAllSemesters" resultType="java.lang.String">
+        SELECT DISTINCT XNMC
+        FROM dkjh
+        ORDER BY SUBSTR(XNMC,1,4) DESC, SUBSTR(XNMC,6,4) DESC, SUBSTR(XNMC,11,1) DESC
+    </select>
+</mapper>

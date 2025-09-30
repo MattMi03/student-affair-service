@@ -3,6 +3,7 @@
 
     <resultMap id="StudentListResultMap" type="edu.qhjy.student.vo.StudentListVO">
         <!--        <id column="ksbs" property="ksbs"/>-->
+        <result column="zpdz" property="zpdz"/>
         <result column="ksh" property="ksh"/>
         <result column="xm" property="xm"/>
         <result column="sfzjh" property="sfzjh"/>
@@ -19,6 +20,7 @@
     <select id="selectStudentList" parameterType="edu.qhjy.student.dto.registeration.AdminStudentQueryDTO"
             resultMap="StudentListResultMap">
         SELECT
+        ks.ZPDZ as zpdz,
         ks.KJZTMC as kjztmc,
         s.XXMC AS xxmc,
         <!-- ks.KSBS AS ksbs, -->
@@ -176,7 +178,7 @@
                           SZQMC, SZSMC, SZXMC, KQMC,
                           YHJSZQMC, YHJSZSMC, YHJSZXMC,
                           QRXZSJ, QRYY, ZQZH, QYZH,
-                          ZPDZ, RXLB, ZZMM, KSLX,
+                          ZPDZ, ZZMM, KSLX,
                           YDDH, YSYZ, MZYYSKYZ,
                           KJZTMC, XXMC, JB, BJBS, BJMC, RXND, BYND,
                           SHJD, SHZT, SHSJ, SHRXM, SHYJ,
@@ -191,11 +193,11 @@
         VALUES (#{ksh}, #{xjh}, #{xm}, #{xb}, #{mz}, #{csrq},
                 #{scsblhdqmc}, #{scsblhdsmc}, #{scsblhdxmc}, #{sfzjlxmc}, #{sfzjh},
                 #{jtxxdzqmc}, #{jtxxdzsmc}, #{jtxxdzxmc},
-                #{szqmc}, #{szsmc}, #{szxmc}, #{kqmc},
+                #{szqmc}, #{szsmc}, #{szxmc}, (SELECT kqmc FROM kqxx WHERE kqdm = (SELECT kqdm FROM xxjbxx WHERE xxmc = #{xxmc})),
                 #{yhjszqmc}, #{yhjszsmc}, #{yhjszxmc},
                 #{qrxzsj}, #{qryy}, #{zqzh}, #{qyzh},
-                #{zpdz}, #{rxlb}, #{zzmm}, #{kslx},
-                #{yddh}, #{ysyz}, #{mzyyskYz},
+                #{zpdz}, #{zzmm}, #{kslx},
+                #{yddh}, #{ysyz}, #{mzyyskyz},
                 #{kjztmc}, #{xxmc}, #{jb}, #{bjbs}, #{bjmc}, #{rxnd}, #{bynd},
                 #{shjd}, #{shzt}, #{shsj}, #{shrxm}, #{shyj},
                 #{cjrxm}, #{cjrgzrym},
@@ -240,7 +242,6 @@
             <if test="xxmc != null">xxmc = #{xxmc},</if>
             <if test="bjmc != null">bjmc = #{bjmc},</if>
             <if test="yddh != null">yddh = #{yddh},</if>
-            <if test="shzt != null">shzt = #{shzt},</if>
             <if test="scsblhdqmc != null">scsblhdqmc = #{scsblhdqmc},</if>
             <if test="scsblhdsmc != null">scsblhdsmc = #{scsblhdsmc},</if>
             <if test="scsblhdxmc != null">scsblhdxmc = #{scsblhdxmc},</if>
@@ -255,26 +256,40 @@
             <if test="szsmc != null">szsmc = #{szsmc},</if>
             <if test="szxmc != null">szxmc = #{szxmc},</if>
             <if test="qrxzsj != null">qrxzsj = #{qrxzsj},</if>
-            <if test="zpdz != null">zpdz = #{zpdz},</if>
+            <!--            <if test="zpdz != null">zpdz = #{zpdz},</if>-->
             <if test="bjbs != null">bjbs = #{bjbs},</if>
             <if test="mzyyskyz != null">mzyyskyz = #{mzyyskyz},</if>
             <if test="ysyz != null">ysyz = #{ysyz},</if>
+            <if test="shzt != null">shzt = #{shzt},</if>
+            <if test="shjd != null">shjd = #{shjd},</if>
             <if test="shyj != null">shyj = #{shyj},</if>
             <if test="shrxm != null">shrxm = #{shrxm},</if>
             <if test="shsj != null">shsj = #{shsj},</if>
-
-            <!-- 新增字段 -->
+            <if test="zzmm!= null">zzmm = #{zzmm},</if>
+            <if test="kjztmc != null">kjztmc = #{kjztmc},</if>
+            <if test="kslx != null">kslx = #{kslx},</if>
             <if test="hklx != null">hklx = #{hklx},</if>
-            <if test="ksSfzZm != null">ks_sfz_zm = #{ksSfzZm},</if>
-            <if test="ksSfzFm != null">ks_sfz_fm = #{ksSfzFm},</if>
-            <if test="fqHkbSy != null">fq_hkb_sy = #{fqHkbSy},</if>
-            <if test="fqHkbBn != null">fq_hkb_bn = #{fqHkbBn},</if>
-            <if test="jhrHkbSy != null">jhr_hkb_sy = #{jhrHkbSy},</if>
-            <if test="jhrHkbBn != null">jhr_hkb_bn = #{jhrHkbBn},</if>
-            <if test="ksHkbSy != null">ks_hkb_sy = #{ksHkbSy},</if>
-            <if test="ksHkbBn != null">ks_hkb_bn = #{ksHkbBn},</if>
-            <if test="mqHkbSy != null">mq_hkb_sy = #{mqHkbSy},</if>
-            <if test="mqHkbBn != null">mq_hkb_bn = #{mqHkbBn},</if>
+            <!--            <if test="ksSfzZm != null">ks_sfz_zm = #{ksSfzZm},</if>-->
+            <!--            <if test="ksSfzFm != null">ks_sfz_fm = #{ksSfzFm},</if>-->
+            <!--            <if test="fqHkbSy != null">fq_hkb_sy = #{fqHkbSy},</if>-->
+            <!--            <if test="fqHkbBn != null">fq_hkb_bn = #{fqHkbBn},</if>-->
+            <!--            <if test="jhrHkbSy != null">jhr_hkb_sy = #{jhrHkbSy},</if>-->
+            <!--            <if test="jhrHkbBn != null">jhr_hkb_bn = #{jhrHkbBn},</if>-->
+            <!--            <if test="ksHkbSy != null">ks_hkb_sy = #{ksHkbSy},</if>-->
+            <!--            <if test="ksHkbBn != null">ks_hkb_bn = #{ksHkbBn},</if>-->
+            <!--            <if test="mqHkbSy != null">mq_hkb_sy = #{mqHkbSy},</if>-->
+            <!--            <if test="mqHkbBn != null">mq_hkb_bn = #{mqHkbBn},</if>-->
+            zpdz = #{zpdz},
+            ks_sfz_zm = #{ksSfzZm},
+            ks_sfz_fm = #{ksSfzFm},
+            fq_hkb_sy = #{fqHkbSy},
+            fq_hkb_bn = #{fqHkbBn},
+            jhr_hkb_sy = #{jhrHkbSy},
+            jhr_hkb_bn = #{jhrHkbBn},
+            ks_hkb_sy = #{ksHkbSy},
+            ks_hkb_bn = #{ksHkbBn},
+            mq_hkb_sy = #{mqHkbSy},
+            mq_hkb_bn = #{mqHkbBn}
         </set>
         WHERE ksh = #{ksh}
     </update>
@@ -297,4 +312,9 @@
         WHERE KSH = #{ksh}
     </delete>
 
+    <select id="findIfSchoolExistBySchoolName" resultType="int">
+        SELECT COUNT(1)
+        FROM xxjbxx
+        WHERE XXMC = #{xxmc}
+    </select>
 </mapper>

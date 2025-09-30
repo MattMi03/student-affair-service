@@ -11,5 +11,5 @@ public interface IWorkflowService {
      *
      * @return 返回下一步的审核阶段名称；如果流程结束，则返回最终状态 ("APPROVED" 或 "REJECTED")
      */
-    WorkflowResultDTO processAudit(Long businessKey, String databaseName, String tableName, String applicantKsh, AuditRequestDTO dto, UserInfo currentUser);
+    WorkflowResultDTO processAudit(Long businessKey, String tableName, String applicantKsh, AuditRequestDTO dto, UserInfo currentUser);
 }

@@ -8,11 +8,9 @@
     </resultMap>
 
     <select id="findStudentLocationByKsh" resultMap="StudentLocationResultMap">
-        SELECT x.XXDM AS schoolCode
-        FROM ksxx s
-                 LEFT JOIN
-             xxjbxx x ON s.XXMC = x.XXMC -- 关联学校表
-        WHERE s.KSH = #{ksh}
+        SELECT DM AS schoolCode
+        FROM ksxx
+        WHERE KSH = #{ksh}
         LIMIT 1
     </select>
 
@@ -25,17 +23,17 @@
     <update id="updateStudentResumptionInfo">
         UPDATE ksxx
         SET KJZTMC = '正常在校',
-            BJMC   = NULL,
+            BJMC   = #{newClassName},
             JB     = #{newGradeLevel}, -- 假设JB是年级
-            BJBS   = NULL
+            BJBS   = #{newClassId}     -- 假设BJBS是班级编码
         WHERE KSH = #{ksh}
     </update>
 
     <update id="updateStudentSchoolInfo">
         UPDATE ksxx
         SET XXMC = #{newSchoolName},
-            BJMC = NULL,
-            BJBs = NULL,
+            BJMC = #{newClassName},
+            BJBS = #{newClassCode},
             JB   = #{newGradeLevel}
         WHERE KSH = #{ksh}
     </update>
@@ -47,10 +45,16 @@
                 <when test="propertyName == '姓名'">XM = #{newValue},</when>
                 <when test="propertyName == '性别'">XB = #{newValue},</when>
                 <when test="propertyName == '民族'">MZ = #{newValue},</when>
-                <when test="propertyName == '身份证件号'">SFZJH = #{newValue},</when>
+                <when test="propertyName == '身份证号'">SFZJH = #{newValue},</when>
             </choose>
         </set>
         WHERE KSH = #{ksh}
     </update>
+
+    <select id="findMaxKshByPrefix" resultType="java.lang.String">
+        SELECT MAX(CAST(KSH AS BIGINT))
+        FROM ksxx
+        WHERE KSH LIKE CONCAT(#{prefix}, '%')
+    </select>
 
 </mapper>

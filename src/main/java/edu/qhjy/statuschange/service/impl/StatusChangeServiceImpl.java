@@ -4,16 +4,18 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import edu.qhjy.statuschange.domain.*;
 import edu.qhjy.statuschange.dto.*;
-import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
-import edu.qhjy.statuschange.dto.audit.UserInfo;
-import edu.qhjy.statuschange.dto.audit.WorkflowResultDTO;
+import edu.qhjy.statuschange.dto.audit.*;
+import edu.qhjy.statuschange.dto.delete.KjydjlRecordDTO;
 import edu.qhjy.statuschange.handler.IStatusChangeHandler;
+import edu.qhjy.statuschange.mapper.KsxxMapper;
 import edu.qhjy.statuschange.mapper.StatusChangeMapper;
 import edu.qhjy.statuschange.service.IWorkflowService;
 import edu.qhjy.statuschange.service.StatusChangeService;
 import edu.qhjy.statuschange.vo.*;
+import edu.qhjy.student.domain.Bjxx;
 import edu.qhjy.student.dto.registeration.RegistrationInfoDTO;
 import edu.qhjy.student.dto.registeration.StudentInfoDTO;
+import edu.qhjy.student.mapper.ClassManagerMapper;
 import edu.qhjy.student.service.StudentRegistrationService;
 import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
@@ -36,6 +38,8 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     private final StatusChangeMapper statusChangeMapper;
     private final StudentRegistrationService studentRegistrationService;
+    private final ClassManagerMapper classManagerMapper;
+
     /**
      * 审核相关实现
      * 【核心】将审核操作委托给通用的工作流服务
@@ -43,6 +47,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
      */
     private final IWorkflowService workflowService; // 【注入】通用工作流服务
     private final List<IStatusChangeHandler> handlers;
+    private final KsxxMapper ksxxMapper;
     private Map<Long, IStatusChangeHandler> handlerMap;
 
     @Override
@@ -166,12 +171,15 @@ public class StatusChangeServiceImpl implements StatusChangeService {
             throw new IllegalArgumentException("该学生没有未复学的休学记录，无法申请复学");
         }
 
+        if (xiuxue.getXxrq().isAfter(applyDTO.getFxrq())) {
+            throw new IllegalArgumentException("复学日期不能早于休学日期");
+        }
+
         // 2. 创建 xfxjl 分表记录，并设置复学标记
         Xfxjl xfxjl = new Xfxjl();
         BeanUtils.copyProperties(applyDTO, xfxjl);
         xfxjl.setKjydjlbs(kjydjlbs);
         xfxjl.setXfxbj((byte) 1); // 关键：设置标记为 1 (复学)
-        xfxjl.setJdnj(applyDTO.getXjdnjYear());
         xfxjl.setXxmc(xiuxue.getXxmc());
         xfxjl.setXxrq(xiuxue.getXxrq());
         xfxjl.setXxyy(xiuxue.getXxyy());
@@ -188,7 +196,122 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         return new PageInfo<>(list);
     }
 
+
+    // 在 StatusChangeServiceImpl 中实现新方法
+    @Override
+    @Transactional
+    public void updateResumptionDetails(Long kjydjlbs, ResumptionUpdateDTO dto) {
+
+
+        // 1. 校验主申请记录是否存在，且必须是“待审核”的“复学”申请
+        Kjydjl application = statusChangeMapper.findKjydjlById(kjydjlbs);
+        if (application == null) {
+            throw new IllegalArgumentException("找不到ID为 " + kjydjlbs + " 的申请记录");
+        }
+        if (application.getKjydlxbs() != 2L) { // 2L = 复学
+            throw new IllegalArgumentException("该申请不是复学申请，无法补充信息");
+        }
+        if (!"待审核".equals(application.getShzt())) {
+            throw new IllegalStateException("该申请已审核，无法修改信息");
+        }
+
+        // 2. 查找对应的 xfxjl 详情记录
+        Xfxjl resumptionDetail = statusChangeMapper.findXfxjlByKjydjlbs(kjydjlbs);
+        if (resumptionDetail == null) {
+            throw new IllegalStateException("找不到对应的复学详情记录");
+        }
+
+        dto.setXbjbs(null);
+
+        Bjxx bjxx = null;
+
+        if (dto.getXbjbs() == null) {
+            if (resumptionDetail.getXxmc() != null && dto.getXbjmc() != null) {
+                bjxx = classManagerMapper.selectByXxmcAndBjmc(resumptionDetail.getXxmc(), dto.getXbjmc());
+                if (bjxx == null) {
+                    throw new IllegalArgumentException("班级名称有误，无法找到对应班级信息, 请核对后重新提交");
+                }
+                dto.setXbjmc(bjxx.getBjmc());
+                dto.setXbjbs(bjxx.getBjbs());
+            }
+        } else {
+            // 补充校验：确保新班级属于该学生所在学校
+            // TODO: 这里有一个方法可以根据班级标识获取学校名称被注释掉了，正式环境需要启用
+            String schooleNameClass = statusChangeMapper.findSchoolNameByBjbs(dto.getXbjbs());
+            if (schooleNameClass == null || !schooleNameClass.equals(resumptionDetail.getXxmc())) {
+                throw new IllegalArgumentException("所选班级不属于该学生所在学校，请重新选择。");
+            }
+        }
+
+
+        // 3. 更新详情记录中的新年级和新班级字段
+        resumptionDetail.setXbjmc(dto.getXbjmc());
+        resumptionDetail.setXjdnj(dto.getXjdnj());
+        resumptionDetail.setXbjbs(dto.getXbjbs());
+
+        // 4. 持久化到数据库
+        statusChangeMapper.updateXfxjlDetails(resumptionDetail);
+    }
+
     //   转学相关实现
+    // 在 StatusChangeServiceImpl 中实现新方法
+    @Override
+    @Transactional
+    public void updateTransDetails(Long kjydjlbs, TransUpdateDTO dto) {
+
+        // 1. 校验主申请记录是否存在，且必须是“待审核”的“复学”申请
+        Kjydjl application = statusChangeMapper.findKjydjlById(kjydjlbs);
+        if (application == null) {
+            throw new IllegalArgumentException("找不到ID为 " + kjydjlbs + " 的申请记录");
+        }
+        if (application.getKjydlxbs() != 4L) { // 4L = 转学
+            throw new IllegalArgumentException("该申请不是复学申请，无法补充信息");
+        }
+        if (!"待审核".equals(application.getShzt())) {
+            throw new IllegalStateException("该申请已审核，无法修改信息");
+        }
+
+        // 2. 查找对应的 xfxjl 详情记录
+        Zxjl resumptionDetail = statusChangeMapper.findZxjlByKjydjlbs(kjydjlbs);
+
+        // 补充校验：确保新班级属于该学生所在学校
+        // TODO: 这里有一个方法可以根据班级标识获取学校名称被注释掉了，正式环境需要启用
+//        String schooleNameClass = statusChangeMapper.findSchoolNameByBjbs(dto.getXbjbs());
+//        if(schooleNameClass == null || !schooleNameClass.equals(resumptionDetail.getXxmc())) {
+//            throw new IllegalArgumentException("所选班级不属于该学生所在学校，请重新选择。");
+//        }
+        // 3. 更新详情记录中的新年级和新班级字段
+
+
+        dto.setXbjbs(null);
+
+        Bjxx bjxx;
+
+        if (dto.getXbjbs() == null) {
+            if (resumptionDetail.getXxmc() != null && dto.getXbjmc() != null) {
+                bjxx = classManagerMapper.selectByXxmcAndBjmc(resumptionDetail.getXxmc(), dto.getXbjmc());
+                if (bjxx == null) {
+                    throw new IllegalArgumentException("班级名称有误，无法找到对应班级信息, 请核对后重新提交");
+                }
+                dto.setXbjmc(bjxx.getBjmc());
+                dto.setXbjbs(bjxx.getBjbs());
+            }
+        } else {
+            // 补充校验：确保新班级属于该学生所在学校
+            // TODO: 这里有一个方法可以根据班级标识获取学校名称被注释掉了，正式环境需要启用
+            String schooleNameClass = statusChangeMapper.findSchoolNameByBjbs(dto.getXbjbs());
+            if (schooleNameClass == null || !schooleNameClass.equals(resumptionDetail.getXxmc())) {
+                throw new IllegalArgumentException("所选班级不属于该学生所在学校，请重新选择。");
+            }
+        }
+
+        resumptionDetail.setJdbj(dto.getXbjmc());
+        resumptionDetail.setBjbs(dto.getXbjbs());
+
+        // 4. 持久化到数据库
+        statusChangeMapper.updateZxjlDetails(resumptionDetail);
+    }
+
     @Override
     public PageInfo<TransferAuditListVO> getTransfer(CommonQueryDTO commonQueryDTO, Long zxlx) {
         // 使用PageHelper进行分页查询
@@ -211,6 +334,13 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
         if (statusChangeMapper.countPendingApplications(ksh, kjydlxbsTransfer) > 0) {
             throw new IllegalStateException("您已有正在审核中的转学申请，请勿重复提交。");
+        }
+
+        if (zxlx == 1 || zxlx == 2) {
+            int count = statusChangeMapper.findIfSchoolExistBySchoolName(applyDTO.getXxmc());
+            if (count != 1) {
+                throw new IllegalArgumentException("转入的学校不存在，请核对后重新提交");
+            }
         }
 
         // 1. 为主申请创建总记录和详情记录
@@ -285,6 +415,10 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     }
 
     private Long insertKjydjl(StudentBasicInfoDTO studentBasicInfoDTO, Long kjydlxbs) {
+        int count = statusChangeMapper.findIfExistByKsh(studentBasicInfoDTO.getKsh());
+        if (count != 1) {
+            throw new IllegalArgumentException("考生号不存在，无法创建考籍异动记录");
+        }
         Kjydjl kjydjl = new Kjydjl();
         BeanUtils.copyProperties(studentBasicInfoDTO, kjydjl);
         kjydjl.setKjydlxbs(kjydlxbs);
@@ -350,7 +484,23 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Transactional
     public String deleteStatusChangeRecord(Long kjydjlbs) {
         // 1. 先从总表查询出这条记录的类型
-        Long recordType = statusChangeMapper.getKjydlxbsByKjydjlbs(kjydjlbs);
+        KjydjlRecordDTO record = statusChangeMapper.getKjydlxbsByKjydjlbs(kjydjlbs);
+
+
+        if (record == null) {
+            throw new IllegalArgumentException("找不到对应的考籍异动记录，无法删除");
+        }
+
+
+        String shzt = record.getShzt();
+
+        if (!"待审核".equals(shzt)) {
+            throw new IllegalStateException("该申请记录已处理，当前状态为：" + shzt + "，无法删除");
+        }
+
+        Long recordType = record.getKjydlxbs();
+
+
         String type = "考籍异动";
         // 2. 根据记录类型，精确地删除对应的分表记录
         if (recordType == 1L) { // 1L = 休学
@@ -387,6 +537,13 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     }
 
     @Override
+    public PageInfo<InformationChangeSummaryBySchoolVO> listInformationChangeSummaryBySchool(SummaryQueryDTO queryDTO) {
+        PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
+        List<InformationChangeSummaryBySchoolVO> list = statusChangeMapper.selectInformationChangeSummaryBySchool(queryDTO);
+        return new PageInfo<>(list);
+    }
+
+    @Override
     public List<InformationChangeVO> getInformationChangeListByKsh(String ksh) {
         // 这里可以加入非空校验等业务逻辑
         return statusChangeMapper.selectInformationChangeByKsh(ksh);
@@ -417,11 +574,37 @@ public class StatusChangeServiceImpl implements StatusChangeService {
             throw new IllegalStateException("该申请已被处理，无法重复审核");
         }
 
+        // 检查是否是复学申请
+        if (application.getKjydlxbs() == 2L) { // 2L = 复学
+            // 如果是复学申请，并且是“通过”操作，则必须校验新年级和新班级是否已填写
+            if ("通过".equals(dto.getDecision())) {
+                Xfxjl resumptionDetail = statusChangeMapper.findXfxjlByKjydjlbs(kjydjlbs);
+                if (resumptionDetail == null ||
+                        resumptionDetail.getXbjmc() == null || resumptionDetail.getXbjmc().isEmpty() ||
+                        resumptionDetail.getXjdnj() == null || resumptionDetail.getXjdnj().isEmpty() ||
+                        resumptionDetail.getXbjbs() == null) {
+
+                    // 如果信息不完整，则抛出异常，阻止审核继续
+                    throw new IllegalStateException("审核无法通过：请先为该复学申请补充“新年级”和“新班级”信息。");
+                }
+            }
+        }
+
+        String tableName = "";
+        if(application.getKjydlxbs() == 1L) {
+            tableName = "KJYDJL-1";
+        } else if(application.getKjydlxbs() == 2L) {
+            tableName = "KJYDJL-2";
+        } else if(application.getKjydlxbs() == 3L) {
+            tableName = "KJYDJL-3";
+        } else if(application.getKjydlxbs() == 4L) {
+            tableName = "KJYDJL-4";
+        }
+
         // 2. 【核心】将审核操作委托给通用的工作流服务
         WorkflowResultDTO result = workflowService.processAudit(
                 kjydjlbs,              // 业务主键
-                "edu_eligibility",          // 业务数据库名，用于在auditflow中查找流程
-                "KJYDJL",              // 业务表名，用于在auditflow中查找流程
+                tableName,              // 业务表名，用于在auditflow中查找流程
                 application.getKsh(),    // 申请人考生号，用于精细化权限校验
                 dto,                   // 审核决定和意见
                 currentUser            // 当前审核人信息

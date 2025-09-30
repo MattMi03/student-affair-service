@@ -12,6 +12,7 @@ public class StudentListVO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     //    private Long ksbs;      // 学生标识ID (用于操作)
+    private String zpdz;
     private String xxmc;    // 学校名称
     private String ksh;     // 考籍号
     private String xm;      // 姓名

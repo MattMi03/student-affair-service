@@ -35,7 +35,7 @@ public interface KsxxMapper {
      * @param newGradeLevel 新就读年级
      * @return 更新的行数
      */
-    int updateStudentResumptionInfo(@Param("ksh") String ksh, @Param("newClassName") String newClassName, @Param("newGradeLevel") Integer newGradeLevel);
+    int updateStudentResumptionInfo(@Param("ksh") String ksh, @Param("newClassName") String newClassName, @Param("newGradeLevel") Integer newGradeLevel, @Param("newClassId") Long newClassId);
 
     /**
      * 更新学生的学校信息 (用于转学)
@@ -46,7 +46,7 @@ public interface KsxxMapper {
      * @param newGradeLevel 新就读年级
      * @return 更新的行数
      */
-    int updateStudentSchoolInfo(@Param("ksh") String ksh, @Param("newSchoolName") String newSchoolName, @Param("newClassName") String newClassName, @Param("newGradeLevel") Integer newGradeLevel);
+    int updateStudentSchoolInfo(@Param("ksh") String ksh, @Param("newSchoolName") String newSchoolName, @Param("newClassName") String newClassName, @Param("newClassCode") Long bjbs, @Param("newGradeLevel") Integer newGradeLevel);
 
     /**
      * 动态更新学生的某个关键属性 (用于信息变更)
@@ -58,4 +58,5 @@ public interface KsxxMapper {
      */
     int updateStudentKeyProperty(@Param("ksh") String ksh, @Param("propertyName") String propertyName, @Param("newValue") Object newValue);
 
+    String findMaxKshByPrefix(String newKshPrefix);
 }

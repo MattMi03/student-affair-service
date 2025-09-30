@@ -27,6 +27,10 @@ public class TransferApplyDetailDTO implements Serializable {
     private String zcyy;        // 转出原因
     private String scwjdz;    // 审查文件地址
 
+    private String jdsqzmwjdz; // 就读申请证明文件地址
+    private String mbxxlqzmwjdz; // 目标学校录取证明文件地址
+    private String swjdsxbawjdz; // 省外就读手续备案文件地址
+
     @NotNull
     @Valid
     private StudentBasicInfoDTO studentBasicInfoDTO;

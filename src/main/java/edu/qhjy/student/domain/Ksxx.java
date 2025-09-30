@@ -37,7 +37,7 @@ public class Ksxx {
     private String qyzh;            // 迁移证号
     private String zpdz;            // 照片地址
     private String zzmm;            // 政治面貌
-    private Integer kslx;           // 考试类型
+    private String kslx;           // 考生类型
     private String yddh;            // 移动电话
     private String ysyz;            // 应试语种
     private String mzyyskyz;        // 民族语言授课语种
