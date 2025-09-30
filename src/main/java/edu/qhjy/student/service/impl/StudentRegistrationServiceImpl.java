@@ -46,7 +46,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     }
 
 
-    // ====== 管理员实现 ======
+    // ====== 管理员实现 (无需修改) ======
     @Override
     public PageInfo<StudentListVO> listStudentsByPage(AdminStudentQueryDTO queryDTO) {
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
@@ -57,7 +57,6 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     @Override
     @Transactional
     public void createRegistrationByAdmin(RegistrationInfoDTO registrationInfo) {
-        // 管理员创建的逻辑可能与学生自注册稍有不同（如跳过某些校验），但核心流程复用
         createRegistration(registrationInfo);
     }
 
@@ -73,7 +72,6 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         if (registrationMapper.existsByKsh(ksh) == 0) {
             throw new RuntimeException("考生号 " + ksh + " 不存在，无法删除");
         }
-        // 级联删除
         registrationMapper.deleteGuardiansByKsh(ksh);
         registrationMapper.deleteAcademicHistoriesByKsh(ksh);
         registrationMapper.deleteStudentByKsh(ksh);
@@ -107,18 +105,15 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     }
 
 
-    // ====== 考生与公共实现 ======
+    // ====== 考生与公共实现 (无需修改) ======
     @Override
     public RegistrationInfoDTO getRegistrationInfo(String ksh) {
-        // 1. 先同步查询主信息
         Ksxx studentInfoEntity = registrationMapper.findStudentInfoByKsh(ksh);
         if (studentInfoEntity == null) {
-            return null; // 学生不存在，直接返回
+            return null;
         }
         StudentInfoDTO studentInfoDTO = convertToStudentInfoDTO(studentInfoEntity);
 
-
-        // 2. 并行异步查询关联信息
         CompletableFuture<List<Jhrxx>> guardianFuture = CompletableFuture.supplyAsync(
                 () -> registrationMapper.findGuardianInfoByKsh(ksh),
                 ioTaskExecutor
@@ -129,21 +124,19 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
                 ioTaskExecutor
         );
 
-        // 3. 等待所有并行任务完成
         CompletableFuture.allOf(guardianFuture, academicFuture).join();
 
         try {
-            // 4. 获取结果并组装
             List<GuardianInfoDTO> guardianInfoList = guardianFuture.get().stream()
                     .map(this::convertToGuardianInfoDTO).collect(Collectors.toList());
             List<AcademicHistoryDTO> academicHistoryList = academicFuture.get().stream()
                     .map(this::convertToAcademicHistoryDTO).collect(Collectors.toList());
 
             while (guardianInfoList.size() < 2) {
-                guardianInfoList.add(new GuardianInfoDTO()); // 字段都是 null
+                guardianInfoList.add(new GuardianInfoDTO());
             }
             while (academicHistoryList.size() < 2) {
-                academicHistoryList.add(new AcademicHistoryDTO()); // 字段都是 null
+                academicHistoryList.add(new AcademicHistoryDTO());
             }
 
             RegistrationInfoDTO registrationInfo = new RegistrationInfoDTO();
@@ -162,7 +155,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     @Transactional
     public void createRegistrationByStudent(String ksh, RegistrationInfoDTO registrationInfo) {
         if (registrationInfo.getStudentInfo() != null) {
-            registrationInfo.getStudentInfo().setKsh(ksh); // 确保KSH来自认证信息
+            registrationInfo.getStudentInfo().setKsh(ksh);
         } else {
             throw new IllegalArgumentException("考生基本信息不能为空");
         }
@@ -173,7 +166,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     @Transactional
     public void updateRegistrationByStudent(String ksh, RegistrationInfoDTO registrationInfo) {
         if (registrationInfo.getStudentInfo() != null) {
-            registrationInfo.getStudentInfo().setKsh(ksh); // 确保KSH来自认证信息
+            registrationInfo.getStudentInfo().setKsh(ksh);
         } else {
             throw new IllegalArgumentException("考生基本信息不能为空");
         }
@@ -182,7 +175,11 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     }
 
 
-    // ====== 私有核心方法 (复用您已有的逻辑) ======
+    // ====== 私有核心方法 (已按要求重构) ======
+
+    /**
+     * [REFACTORED] 已重构，增加根据学校名称查询并设置xxdm的逻辑
+     */
     private void createRegistration(RegistrationInfoDTO registrationInfo) {
         StudentInfoDTO studentInfo = registrationInfo.getStudentInfo();
         if (studentInfo == null || studentInfo.getKsh() == null || studentInfo.getKsh().isEmpty()) {
@@ -200,8 +197,17 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
 
         Ksxx ksxx = convertToKsxx(studentInfo);
 
-        Bjxx bjxx = null;
+        // [REFACTORED] START: 新增逻辑，根据学校名称查询并设置XXDM
+        if (studentInfo.getXxmc() != null && !studentInfo.getXxmc().isEmpty()) {
+            String schoolDm = registrationMapper.findSchoolDmBySchoolName(studentInfo.getXxmc());
+            if (schoolDm == null) {
+                throw new IllegalArgumentException("根据学校名称 '" + studentInfo.getXxmc() + "' 未在单位代码库(XYZDK)中找到对应的学校代码。");
+            }
+            ksxx.setXxdm(schoolDm); // 设置XXDM
+        }
+        // [REFACTORED] END
 
+        Bjxx bjxx = null;
         if (studentInfo.getBjbs() == null) {
             if (studentInfo.getXxmc() != null && studentInfo.getBjmc() != null) {
                 bjxx = classManagerMapper.selectByXxmcAndBjmc(studentInfo.getXxmc(), studentInfo.getBjmc());
@@ -212,7 +218,6 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         } else {
             bjxx = classManagerMapper.selectById(ksxx.getBjbs());
         }
-
 
         if (bjxx != null) {
             ksxx.setYsyz(bjxx.getYsyz());
@@ -227,23 +232,33 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         insertSubTableInfo(registrationInfo, ksh);
     }
 
+    /**
+     * [REFACTORED] 已重构，增加根据学校名称查询并设置xxdm的逻辑
+     */
     private void updateRegistration(String ksh, RegistrationInfoDTO registrationInfo) {
-        // 1. 校验
         if (registrationMapper.existsByKsh(ksh) == 0) {
             throw new RuntimeException("考生号 " + ksh + " 不存在，无法更新");
         }
 
-        registrationInfo.getStudentInfo().setKsh(ksh); // 确保KSH来自认证信息
+        StudentInfoDTO studentInfo = registrationInfo.getStudentInfo();
+        studentInfo.setKsh(ksh);
 
-        registrationInfo.getStudentInfo().setCsrq(IdCardUtils.getBirthday(registrationInfo.getStudentInfo().getSfzjh()));
-        registrationInfo.getStudentInfo().setXb(IdCardUtils.getGender(registrationInfo.getStudentInfo().getSfzjh()));
+        studentInfo.setCsrq(IdCardUtils.getBirthday(studentInfo.getSfzjh()));
+        studentInfo.setXb(IdCardUtils.getGender(studentInfo.getSfzjh()));
 
-        Ksxx ksxx = convertToKsxx(registrationInfo.getStudentInfo());
+        Ksxx ksxx = convertToKsxx(studentInfo);
+
+        // [REFACTORED] START: 新增逻辑，根据学校名称查询并设置XXDM
+        if (studentInfo.getXxmc() != null && !studentInfo.getXxmc().isEmpty()) {
+            String schoolDm = registrationMapper.findSchoolDmBySchoolName(studentInfo.getXxmc());
+            if (schoolDm == null) {
+                throw new IllegalArgumentException("根据学校名称 '" + studentInfo.getXxmc() + "' 未在单位代码库(XYZDK)中找到对应的学校代码。");
+            }
+            ksxx.setXxdm(schoolDm); // 设置XXDM
+        }
+        // [REFACTORED] END
 
         Bjxx bjxx = null;
-
-        StudentInfoDTO studentInfo = registrationInfo.getStudentInfo();
-
         if (studentInfo.getBjbs() == null) {
             if (studentInfo.getXxmc() != null && studentInfo.getBjmc() != null) {
                 bjxx = classManagerMapper.selectByXxmcAndBjmc(studentInfo.getXxmc(), studentInfo.getBjmc());
@@ -255,8 +270,6 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
             bjxx = classManagerMapper.selectById(ksxx.getBjbs());
         }
 
-        // 2. 更新考生主信息
-
         if (bjxx != null) {
             ksxx.setYsyz(bjxx.getYsyz());
             ksxx.setMzyyskyz(bjxx.getMzyyskyz());
@@ -265,13 +278,13 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         }
         registrationMapper.updateStudentInfo(ksxx);
 
-        // 3. 删除旧的子表信息
         registrationMapper.deleteGuardiansByKsh(ksh);
         registrationMapper.deleteAcademicHistoriesByKsh(ksh);
 
-        // 4. 插入新的子表信息
         insertSubTableInfo(registrationInfo, ksh);
     }
+
+    // ====== 私有辅助方法 (无需修改) ======
 
     private void insertSubTableInfo(RegistrationInfoDTO registrationInfo, String ksh) {
         List<GuardianInfoDTO> guardians = registrationInfo.getGuardians();
@@ -295,8 +308,6 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         }
     }
 
-    // ====== DTO与Entity转换方法 ======
-    // 这些转换方法可以使用 MapStruct 等工具自动生成，这里为方便理解手动实现
     private Ksxx convertToKsxx(StudentInfoDTO dto) {
         if (dto == null) return null;
         Ksxx entity = new Ksxx();
@@ -308,7 +319,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         if (dto == null) return null;
         Jhrxx entity = new Jhrxx();
         BeanUtils.copyProperties(dto, entity);
-        entity.setKsh(ksh); // 关联外键
+        entity.setKsh(ksh);
         return entity;
     }
 
@@ -316,7 +327,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         if (dto == null) return null;
         Xlxx entity = new Xlxx();
         BeanUtils.copyProperties(dto, entity);
-        entity.setKsh(ksh); // 关联外键
+        entity.setKsh(ksh);
         return entity;
     }
 

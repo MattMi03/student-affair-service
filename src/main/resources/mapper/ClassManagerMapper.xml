@@ -34,9 +34,9 @@
         k.MC AS kqmc
         FROM
         BJXX b
-        JOIN XYZDK s ON b.XXDM = s.DM AND s.JH = 'ZX'   -- 学校
-        JOIN XYZDK k ON b.XXDM LIKE k.DM || '%' AND k.JH = 'KD'  -- 考区
-        JOIN XYZDK szs ON b.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ'  -- 地市
+        JOIN XYZDK s ON b.XXDM = s.DM AND s.JH = 'ZX' -- 学校
+        JOIN XYZDK k ON b.XXDM LIKE k.DM || '%' AND k.JH = 'KD' -- 考区
+        JOIN XYZDK szs ON b.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ' -- 地市
         <where>
             <if test="jbny != null">AND b.JB = #{jbny}</if>
             <if test="xxdm != null and xxdm != ''">AND s.DM = #{xxdm}</if>
@@ -99,8 +99,8 @@
                ks.XM,
                bj.BJMC
         FROM ksxx ks
+                 INNER JOIN bjxx bj ON ks.JB = bj.JB AND ks.XXDM = bj.XXDM
                  INNER JOIN xyzdk xx ON ks.XXDM = xx.DM AND xx.JH = 'ZX'
-                 INNER JOIN bjxx bj ON xx.DM = bj.XXDM
         WHERE bj.BJBS = #{bjbs}
           AND ks.KJZTMC = '正常在校'
     </select>
@@ -134,8 +134,8 @@
     <select id="selectByXxmcAndBjmc" resultType="edu.qhjy.student.domain.Bjxx" parameterType="map">
         SELECT bj.*
         FROM bjxx bj
-                 LEFT JOIN xxjbxx xx ON bj.XXDM = xx.XXDM
-        WHERE xx.XXMC = #{xxmc}
+                 LEFT JOIN xyzdk xx ON bj.XXDM = xx.DM
+        WHERE xx.MC = #{xxmc}
           AND bj.BJMC = #{bjmc}
     </select>
 

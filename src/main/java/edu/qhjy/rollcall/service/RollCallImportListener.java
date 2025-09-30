@@ -2,7 +2,6 @@ package edu.qhjy.rollcall.service;
 
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.event.AnalysisEventListener;
-import edu.qhjy.rollcall.service.IStudentRollCallService;
 import edu.qhjy.rollcall.vo.StudentRollCallListVO;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +15,7 @@ public class RollCallImportListener extends AnalysisEventListener<StudentRollCal
 
     private final IStudentRollCallService studentRollCallService;
     private final List<StudentRollCallListVO> dataList = new ArrayList<>();
-    
+
     // 用于存储最终的导入结果
     @Getter
     private Map<String, Object> importResult;

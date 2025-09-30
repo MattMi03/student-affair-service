@@ -32,7 +32,6 @@
 
     <select id="findPunchInTasksForPage" resultType="edu.qhjy.punchin.vo.PunchInRecordListVO">
         SELECT
-        -- 状态优先级：请假 > 已打卡 > 未打卡
         CASE
         WHEN qjjl.QJJLBS IS NOT NULL THEN '请假'
         WHEN dkjl.DKJLBS IS NOT NULL THEN '已打卡'
@@ -44,22 +43,23 @@
         ks.XM AS xm,
         ks.KSH AS ksh,
         ks.SFZJH AS sfzjh,
-        school.XXMC AS xxmc
+        school.MC AS xxmc -- [REFACTORED]
         FROM dkjh plan
-        JOIN xxjbxx school ON school.XXDM = plan.XXDM
+        -- [REFACTORED] START:
+        JOIN XYZDK school ON school.DM = plan.XXDM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON area.DM = SUBSTR(school.DM, 1, 2) AND area.JH = 'KD'
+        -- [REFACTORED] END
         JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
-        JOIN ksxx ks ON ks.XXMC = school.XXMC
+        JOIN ksxx ks ON ks.XXMC = school.MC -- [REFACTORED]
         LEFT JOIN dkjl
         ON ks.KSH = dkjl.KSH
         AND dates.PUNCH_DATE = dkjl.DKRQ
         AND plan.DKJHBS = dkjl.DKJHBS
-        -- 【新增】请假关联
         LEFT JOIN qjjl
         ON qjjl.KSH = ks.KSH
         AND qjjl.DKJHBS = plan.DKJHBS
         AND dates.PUNCH_DATE BETWEEN qjjl.KSRQ AND qjjl.JSRQ
         AND qjjl.SHZT = '通过'
-        LEFT JOIN kqxx area ON school.KQDM = area.KQDM
         <where>
             AND dates.PUNCH_DATE &lt;= CURDATE()
             AND ks.KJZTMC = '正常在校'
@@ -70,7 +70,7 @@
                 AND plan.XXDM = #{xxdm}
             </if>
             <if test="(xxdm == null or xxdm == '') and kqdm != null and kqdm != ''">
-                AND area.KQDM = #{kqdm}
+                AND area.DM = #{kqdm} -- [REFACTORED]
             </if>
             <if test="jb != null and jb != ''">
                 AND ks.JB = #{jb}
@@ -82,18 +82,17 @@
         ORDER BY dates.PUNCH_DATE, ks.KSH
     </select>
 
-    <!-- 批量根据考生号查学校代码 -->
     <select id="findSchoolCodesByKshList" resultType="java.util.Map">
-        SELECT k.KSH, x.XXDM
+        SELECT k.KSH, x.DM AS XXDM -- [REFACTORED]
         FROM ksxx k
-        JOIN xxjbxx x ON k.XXMC = x.XXMC
+        -- [REFACTORED]
+        JOIN XYZDK x ON k.XXMC = x.MC AND x.JH = 'ZX'
         WHERE k.KSH IN
         <foreach collection="kshList" item="ksh" open="(" separator="," close=")">
             #{ksh}
         </foreach>
     </select>
 
-    <!-- 批量查计划 -->
     <select id="findPlansBySemesterAndSchools" resultType="edu.qhjy.punchin.domain.Dkjh">
         SELECT *
         FROM dkjh
@@ -104,7 +103,6 @@
         </foreach>
     </select>
 
-    <!-- 批量查计划日期 -->
     <select id="findPlanDatesByPlanIds" resultType="java.util.Map">
         SELECT DKJHBS, PUNCH_DATE
         FROM dkjh_dates
@@ -129,25 +127,21 @@
         q.ZMCLLB AS zmcllb
         FROM
         qjjl q
-        JOIN
-        ksxx s ON q.KSH = s.KSH
-        -- 【新增】为了按学期名称筛选，需要关联打卡计划表
-        LEFT JOIN
-        dkjh d ON q.DKJHBS = d.DKJHBS
-        -- 【新增】为了按考区和学校代码筛选，需要关联学校和考区信息
-        LEFT JOIN
-        xxjbxx school ON s.XXMC = school.XXMC
-        LEFT JOIN
-        kqxx area ON school.KQDM = area.KQDM
+        JOIN ksxx s ON q.KSH = s.KSH
+        LEFT JOIN dkjh d ON q.DKJHBS = d.DKJHBS
+        -- [REFACTORED] START:
+        LEFT JOIN XYZDK school ON s.XXMC = school.MC AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON area.DM = SUBSTR(school.DM, 1, 2) AND area.JH = 'KD'
+        -- [REFACTORED] END
         <where>
             <if test="xnmc != null and xnmc != ''">
                 AND d.XNMC = #{xnmc}
             </if>
             <if test="kqdm != null and kqdm != ''">
-                AND area.KQDM = #{kqdm}
+                AND area.DM = #{kqdm} -- [REFACTORED]
             </if>
             <if test="xxdm != null and xxdm != ''">
-                AND school.XXDM = #{xxdm}
+                AND school.DM = #{xxdm} -- [REFACTORED]
             </if>
             <if test="jb != null">
                 AND s.JB = #{jb}
@@ -181,28 +175,25 @@
     </update>
 
     <select id="findSchoolCodeByStudentId" resultType="java.lang.String">
-        SELECT xx.XXDM
-        FROM xxjbxx xx
-                 JOIN ksxx ks ON xx.XXMC = ks.XXMC
+        SELECT xx.DM AS XXDM -- [REFACTORED]
+        FROM XYZDK xx -- [REFACTORED]
+                 JOIN ksxx ks ON xx.MC = ks.XXMC -- [REFACTORED]
         WHERE ks.KSH = #{ksh}
+          AND xx.JH = 'ZX' -- [REFACTORED]
         LIMIT 1
     </select>
 
 
     <select id="findPunchInStats" resultType="edu.qhjy.punchin.vo.PunchInStatsVO">
-        -- 使用 WITH 子句（CTE）来构建两个独立的统计维度
         WITH
-        -- 第一部分：计算基于“天”的统计（出勤、总人天次）
         daily_stats AS (
         SELECT
         ks.JB,
         plan.XNMC,
-        school.XXDM,
-        school.XXMC,
-        area.KQMC,
-        -- 计算实际出勤的人天次
+        school.DM AS XXDM,
+        school.MC AS XXMC,
+        area.MC AS KQMC,
         SUM(CASE WHEN dkjl.DKJLBS IS NOT NULL THEN 1 ELSE 0 END) AS attendance_person_days,
-        -- 计算总的应出勤人天次
         COUNT(ks.KSH) AS total_person_days
         FROM
         (
@@ -210,24 +201,31 @@
         <if test="jb != null and jb != ''">AND JB = #{jb}</if>
         <if test="bjbs != null">AND BJBS = #{bjbs}</if>
         ) ks
-        JOIN xxjbxx school ON ks.XXMC = school.XXMC
-        <if test="xxdm != null and xxdm != ''">AND school.XXDM = #{xxdm}</if>
-        JOIN dkjh plan ON school.XXDM = plan.XXDM
-        <if test="xnmc != null and xnmc != ''">AND plan.XNMC = #{xnmc}</if>
+        JOIN XYZDK school ON ks.XXMC = school.MC AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON area.DM = SUBSTR(school.DM, 1, 2) AND area.JH = 'KD'
+        JOIN dkjh plan ON school.DM = plan.XXDM
         JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
         LEFT JOIN dkjl ON ks.KSH = dkjl.KSH AND dates.PUNCH_DATE = dkjl.DKRQ AND plan.DKJHBS = dkjl.DKJHBS
-        LEFT JOIN kqxx area ON school.KQDM = area.KQDM
-        <if test="kqdm != null and kqdm != ''">AND area.KQDM = #{kqdm}</if>
-        WHERE dates.PUNCH_DATE &lt;= CURDATE()
-        GROUP BY ks.JB, plan.XNMC, school.XXDM, school.XXMC, area.KQMC
+        -- [CORRECTED] 将所有筛选条件移入WHERE子句
+        <where>
+            dates.PUNCH_DATE &lt;= CURDATE()
+            <if test="xxdm != null and xxdm != ''">
+                AND school.DM = #{xxdm}
+            </if>
+            <if test="kqdm != null and kqdm != ''">
+                AND area.DM = #{kqdm}
+            </if>
+            <if test="xnmc != null and xnmc != ''">
+                AND plan.XNMC = #{xnmc}
+            </if>
+        </where>
+        GROUP BY ks.JB, plan.XNMC, school.DM, school.MC, area.MC
         ),
-        -- 第二部分：计算基于“请假单”的统计（不关联日期表）
         leave_stats AS (
         SELECT
         ks.JB,
         plan.XNMC,
-        school.XXDM,
-        -- 只统计已批准的、不重复的请假单数量
+        school.DM AS XXDM,
         COUNT(DISTINCT qjjl.QJJLBS) as leave_request_count
         FROM
         (
@@ -235,16 +233,21 @@
         <if test="jb != null and jb != ''">AND JB = #{jb}</if>
         <if test="bjbs != null">AND BJBS = #{bjbs}</if>
         ) ks
-        JOIN xxjbxx school ON ks.XXMC = school.XXMC
-        <if test="xxdm != null and xxdm != ''">AND school.XXDM = #{xxdm}</if>
-        JOIN dkjh plan ON school.XXDM = plan.XXDM
-        <if test="xnmc != null and xnmc != ''">AND plan.XNMC = #{xnmc}</if>
-        -- 直接关联请假表，不通过日期表
+        JOIN XYZDK school ON ks.XXMC = school.MC AND school.JH = 'ZX'
+        JOIN dkjh plan ON school.DM = plan.XXDM
         JOIN qjjl ON ks.KSH = qjjl.KSH AND plan.DKJHBS = qjjl.DKJHBS
-        WHERE qjjl.SHZT = '通过'
-        GROUP BY ks.JB, plan.XNMC, school.XXDM
+        -- [CORRECTED] 将所有筛选条件移入WHERE子句
+        <where>
+            qjjl.SHZT = '通过'
+            <if test="xxdm != null and xxdm != ''">
+                AND school.DM = #{xxdm}
+            </if>
+            <if test="xnmc != null and xnmc != ''">
+                AND plan.XNMC = #{xnmc}
+            </if>
+        </where>
+        GROUP BY ks.JB, plan.XNMC, school.DM
         )
-        -- 最后，将两份统计数据合并成最终报表
         SELECT
         ds.JB AS jb,
         ds.XNMC AS xnmc,
@@ -252,9 +255,7 @@
         ds.XXMC AS xxmc,
         ds.XXDM AS xxdm,
         ds.attendance_person_days AS attendanceCount,
-        -- 如果 leave_stats 中没有匹配项，则请假数为0
         COALESCE(ls.leave_request_count, 0) AS leaveCount,
-        -- 缺勤人天次 = 总应出勤人天次 - 实际出勤人天次
         (ds.total_person_days - ds.attendance_person_days) AS absenceCount
         FROM
         daily_stats ds
@@ -279,8 +280,9 @@
         FROM
         dkjh plan
         JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
-        LEFT JOIN xxjbxx school ON plan.XXDM = school.XXDM
-        JOIN ksxx ks ON school.XXMC = ks.XXMC
+        -- [REFACTORED]
+        JOIN XYZDK school ON plan.XXDM = school.DM AND school.JH = 'ZX'
+        JOIN ksxx ks ON school.MC = ks.XXMC -- [REFACTORED]
         LEFT JOIN dkjl ON ks.KSH = dkjl.KSH
         AND dates.PUNCH_DATE = dkjl.DKRQ
         AND plan.DKJHBS = dkjl.DKJHBS
@@ -290,12 +292,12 @@
         <where>
             dates.PUNCH_DATE &lt;= CURDATE()
             AND ks.KJZTMC = '正常在校'
-            AND dkjl.DKJLBS IS NULL       <!-- 只查没打卡的 -->
+            AND dkjl.DKJLBS IS NULL
             <if test="xnmc != null and xnmc != ''">
                 AND plan.XNMC = #{xnmc}
             </if>
             <if test="xxdm != null and xxdm != ''">
-                AND school.XXDM = #{xxdm}
+                AND school.DM = #{xxdm} -- [REFACTORED]
             </if>
             <if test="jb != null and jb != ''">
                 AND ks.JB = #{jb}

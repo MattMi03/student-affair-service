@@ -2,24 +2,29 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.qhjy.rollcall.mapper.StudentRollCallMapper">
 
+    <!-- 学生考勤分页查询 -->
     <select id="findForPage" resultType="edu.qhjy.rollcall.vo.StudentRollCallListVO">
         SELECT
-        s.XXMC AS xxmc,
         s.XM AS xm,
         s.KSH AS ksh,
         s.SFZJH AS sfzjh,
         s.JB AS jb,
         s.BJMC AS bjmc,
-        k.kqzt,
-        k.kqsj,
-        k.zqry
+        school.MC AS xxmc,
+        kq.MC AS kqmc,
+        szs.MC AS szsmc,
+        kqjl.kqzt,
+        kqjl.kqsj,
+        kqjl.zqry
         FROM
-        kqjl k
-        JOIN ksxx s ON k.ksh = s.KSH
-        JOIN xxjbxx xx ON s.XXMC = xx.XXMC
+        kqjl
+        JOIN KSXX s ON kqjl.KSH = s.KSH
+        JOIN XYZDK school ON s.XXDM = school.DM AND school.JH = 'ZX'    <!-- 学校 -->
+        JOIN XYZDK kq ON s.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD'       <!-- 考区 -->
+        JOIN XYZDK szs ON s.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ'     <!-- 地市 -->
         <where>
             <if test="xxdm != null and xxdm != ''">
-                AND xx.XXDM = #{xxdm}
+                AND school.DM = #{xxdm}
             </if>
             <if test="xm != null and xm != ''">
                 AND s.XM LIKE CONCAT('%', #{xm}, '%')
@@ -34,24 +39,31 @@
                 AND s.BJBS = #{bjbs}
             </if>
         </where>
-        ORDER BY k.kqsj DESC
+        ORDER BY kqjl.kqsj DESC
     </select>
 
+    <!-- 导出Excel使用的查询 -->
     <select id="findForPageForExcel" resultType="edu.qhjy.rollcall.vo.StudentRollCallListVO">
         SELECT
-        xx.xxmc AS xxmc,
         s.XM AS xm,
         s.KSH AS ksh,
         s.SFZJH AS sfzjh,
         s.JB AS jb,
-        s.BJMC AS bjmc
+        s.BJMC AS bjmc,
+        school.MC AS xxmc,
+        kq.MC AS kqmc,
+        szs.MC AS szsmc
         FROM
-        ksxx s
-        JOIN xxjbxx xx ON s.XXMC = xx.XXMC
+        XYZDK school
+        LEFT JOIN KSXX s
+        ON s.XXDM = school.DM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK kq
+        ON s.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD'
+        LEFT JOIN XYZDK szs
+        ON s.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ'
         <where>
-            AND s.KJZTMC = '正常在校'
             <if test="xxdm != null and xxdm != ''">
-                AND xx.XXDM = #{xxdm}
+                AND school.DM = #{xxdm}
             </if>
             <if test="jb != null">
                 AND s.JB = #{jb}
@@ -60,8 +72,10 @@
                 AND s.BJBS = #{bjbs}
             </if>
         </where>
+        ORDER BY school.DM, s.JB, s.BJMC
     </select>
 
+    <!-- 批量插入 -->
     <insert id="batchInsert">
         INSERT INTO kqjl (ksh, kqzt, kqsj, zqry)
         VALUES
@@ -70,14 +84,16 @@
         </foreach>
     </insert>
 
+    <!-- 查询已有学生学号 -->
     <select id="findExistingKshs" resultType="string" parameterType="list">
-        SELECT KSH FROM ksxx
+        SELECT KSH FROM KSXX
         WHERE KSH IN
         <foreach item="ksh" collection="list" open="(" separator="," close=")">
             #{ksh}
         </foreach>
     </select>
 
+    <!-- 批量插入忽略重复 -->
     <insert id="batchInsertIgnoreDuplicates" parameterType="list">
         INSERT INTO kqjl (ksh, kqzt, kqsj, zqry)
         SELECT ksh, kqzt, kqsj, zqry

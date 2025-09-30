@@ -1,8 +1,8 @@
 package edu.qhjy.rollcall.vo;
 
 import com.alibaba.excel.annotation.ExcelProperty;
-import com.alibaba.excel.annotation.format.DateTimeFormat; // <-- 1. Import this annotation
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data

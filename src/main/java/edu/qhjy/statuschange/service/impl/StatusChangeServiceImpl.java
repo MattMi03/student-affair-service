@@ -591,13 +591,13 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         }
 
         String tableName = "";
-        if(application.getKjydlxbs() == 1L) {
+        if (application.getKjydlxbs() == 1L) {
             tableName = "KJYDJL-1";
-        } else if(application.getKjydlxbs() == 2L) {
+        } else if (application.getKjydlxbs() == 2L) {
             tableName = "KJYDJL-2";
-        } else if(application.getKjydlxbs() == 3L) {
+        } else if (application.getKjydlxbs() == 3L) {
             tableName = "KJYDJL-3";
-        } else if(application.getKjydlxbs() == 4L) {
+        } else if (application.getKjydlxbs() == 4L) {
             tableName = "KJYDJL-4";
         }
 

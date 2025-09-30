@@ -46,4 +46,5 @@ public interface StudentRegistrationMapper {
 
     void deleteStudentByKsh(String ksh);
 
+    String findSchoolDmBySchoolName(String schoolName);
 }

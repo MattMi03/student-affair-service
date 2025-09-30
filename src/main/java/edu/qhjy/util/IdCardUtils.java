@@ -5,12 +5,11 @@ import java.time.format.DateTimeFormatter;
 
 public class IdCardUtils {
 
-    // 加权因子
-    private static final int[] FACTORS = {7, 9, 10, 5, 8, 4, 2, 1, 6, 3,
-            7, 9, 10, 5, 8, 4, 2};
+    // 加权因子，17位
+    private static final int[] FACTORS = {7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2};
+
     // 校验码
-    private static final char[] CHECK_CODES = {'1', '0', 'X', '9', '8',
-            '7', '6', '5', '4', '3', '2'};
+    private static final char[] CHECK_CODES = {'1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'};
 
     private static final DateTimeFormatter BIRTHDAY_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -24,7 +23,7 @@ public class IdCardUtils {
 
         // 前17位必须是数字
         String first17 = id.substring(0, 17);
-        if (!first17.matches("\\d{17}")) {
+        if (!first17.chars().allMatch(Character::isDigit)) {
             return false;
         }
 
@@ -38,6 +37,8 @@ public class IdCardUtils {
 
         // 实际校验位
         char actualCheckCode = Character.toUpperCase(id.charAt(17));
+
+        System.out.println("Expected: " + expectedCheckCode + ", Actual: " + actualCheckCode);
         return expectedCheckCode == actualCheckCode;
     }
 

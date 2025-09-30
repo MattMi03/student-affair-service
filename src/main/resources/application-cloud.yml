@@ -11,7 +11,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:dm://172.20.193.204:5236/EDU_DATABASE?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
+    url: jdbc:dm://172.20.193.204:5236/EDU_COPY?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
     driver-class-name: dm.jdbc.driver.DmDriver
     username: SYSDBA
     password: SYSDBA001

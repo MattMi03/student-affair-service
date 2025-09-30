@@ -16,6 +16,7 @@ public class Ksxx {
     private String xm;              // 姓名
     private String xb;              // 性别 (男或女)
     private String mz;              // 民族
+    private String xxdm;           // 学校代码
     private LocalDate csrq;         // 出生日期
     private String scsblhdqmc;      // 首次申报落户地省名称
     private String scsblhdsmc;      // 首次申报落户地市州名称

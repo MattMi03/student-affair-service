@@ -24,7 +24,9 @@ spring:
       discovery:
         enabled: false
 
-
+springdoc:
+  swagger-ui:
+    doc-expansion: none
 #  data:
 #    redis:
 #      cluster:

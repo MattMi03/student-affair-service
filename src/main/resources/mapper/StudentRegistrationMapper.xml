@@ -1,8 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.qhjy.student.mapper.StudentRegistrationMapper">
 
+    <select id="findSchoolDmBySchoolName" resultType="java.lang.String">
+        SELECT DM
+        FROM XYZDK
+        WHERE MC = #{schoolName}
+          AND JH = 'ZX'
+        LIMIT 1
+    </select>
+
     <resultMap id="StudentListResultMap" type="edu.qhjy.student.vo.StudentListVO">
-        <!--        <id column="ksbs" property="ksbs"/>-->
         <result column="zpdz" property="zpdz"/>
         <result column="ksh" property="ksh"/>
         <result column="xm" property="xm"/>
@@ -22,8 +30,7 @@
         SELECT
         ks.ZPDZ as zpdz,
         ks.KJZTMC as kjztmc,
-        s.XXMC AS xxmc,
-        <!-- ks.KSBS AS ksbs, -->
+        school.MC AS xxmc, -- [REFACTORED]
         ks.KSH AS ksh,
         ks.XM AS xm,
         ks.SFZJH AS sfzjh,
@@ -36,17 +43,18 @@
         FROM
         ksxx ks
         LEFT JOIN bjxx b ON ks.BJBS = b.BJBS
-        LEFT JOIN xxjbxx s ON b.XXDM = s.XXDM
-        LEFT JOIN kqxx k ON s.KQDM = k.KQDM
+        LEFT JOIN XYZDK school ON ks.XXDM = school.DM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON SUBSTR(school.DM, 1, 2) = area.DM AND area.JH = 'KD'
+        LEFT JOIN XYZDK city ON SUBSTR(school.DM, 1, 1) = city.DM AND city.JH = 'KQ'
         <where>
             <if test="ksh != null and ksh != ''">AND ks.KSH = #{ksh}</if>
             <if test="sfzjh != null and sfzjh != ''">AND ks.SFZJH = #{sfzjh}</if>
             <if test="xm != null and xm != ''">AND ks.XM LIKE CONCAT('%', #{xm}, '%')</if>
             <if test="shzt != null and shzt != ''">AND ks.shzt = #{shzt}</if>
             <if test="bjbs != null">AND b.BJBS = #{bjbs}</if>
-            <if test="xxdm != null and xxdm != ''">AND s.XXDM = #{xxdm}</if>
-            <if test="kqdm != null and kqdm != ''">AND s.KQDM = #{kqdm}</if>
-            <if test="szsdm != null and szsdm != ''">AND s.SZSDM = #{szsdm}</if>
+            <if test="xxdm != null and xxdm != ''">AND school.DM = #{xxdm}</if>
+            <if test="kqdm != null and kqdm != ''">AND area.DM = #{kqdm}</if>
+            <if test="szsdm != null and szsdm != ''">AND city.DM = #{szsdm}</if>
             <if test="jb != null and jb != ''">AND b.jb = #{jb}</if>
         </where>
         ORDER BY ks.CJSJ DESC
@@ -68,81 +76,39 @@
             resultMap="StatisticsResultMap">
         SELECT
         b.jb AS jb,
-        k.SSXZQHMC AS ssxzqhmc,
-        k.KQMC AS kqmc,
-        s.XXMC AS xxmc,
-        s.XXDM AS xxdm,
+        city.MC AS ssxzqhmc, -- [REFACTORED]
+        area.MC AS kqmc, -- [REFACTORED]
+        school.MC AS xxmc, -- [REFACTORED]
+        school.DM AS xxdm, -- [REFACTORED]
         SUM(CASE WHEN ks.KJZTMC = '正常在校' THEN 1 ELSE 0 END) AS zxrs,
         SUM(CASE WHEN ks.KJZTMC = '休学' THEN 1 ELSE 0 END) AS xxrs,
         SUM(CASE WHEN ks.KJZTMC = '流失' THEN 1 ELSE 0 END) AS lsrs,
         SUM(CASE WHEN ks.KJZTMC = '毕业' THEN 1 ELSE 0 END) AS byrs,
         COUNT(ks.KSH) AS zrs
         FROM ksxx ks
-        LEFT JOIN bjxx b
-        ON ks.BJBS = b.BJBS
-        LEFT JOIN xxjbxx s
-        ON b.XXDM = s.XXDM
-        LEFT JOIN kqxx k
-        ON s.KQDM = k.KQDM
+        LEFT JOIN bjxx b ON ks.BJBS = b.BJBS
+        LEFT JOIN XYZDK school ON ks.XXDM = school.DM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON SUBSTR(school.DM, 1, 2) = area.DM AND area.JH = 'KD'
+        LEFT JOIN XYZDK city ON SUBSTR(school.DM, 1, 1) = city.DM AND city.JH = 'KQ'
         <where>
             <if test="jb != null and jb != ''">
                 AND b.jb = #{jb}
             </if>
             <if test="szsdm != null and szsdm != ''">
-                AND k.SSXZQHDM = #{szsdm}
+                AND city.DM = #{szsdm}
             </if>
             <if test="kqdm != null and kqdm != ''">
-                AND k.KQDM = #{kqdm}
+                AND area.DM = #{kqdm}
             </if>
             <if test="xxdm != null and xxdm != ''">
-                AND s.XXDM = #{xxdm}
+                AND school.DM = #{xxdm}
             </if>
         </where>
-        GROUP BY b.jb, k.SSXZQHMC, k.KQMC, s.XXMC, s.XXDM
-        ORDER BY s.XXDM ASC, b.jb ASC
+        GROUP BY b.jb, city.MC, area.MC, school.MC, school.DM
+        ORDER BY school.DM ASC, b.jb ASC
     </select>
 
     <resultMap id="ksxxResultMap" type="edu.qhjy.student.domain.Ksxx">
-        <id column="KSH" property="ksh"/>
-        <result column="XJH" property="xjh"/>
-        <result column="XM" property="xm"/>
-        <result column="XB" property="xb"/>
-        <result column="MZ" property="mz"/>
-        <result column="CSRQ" property="csrq"/>
-        <result column="SCSBLHDQMC" property="scsblhdqmc"/>
-        <result column="SCSBLHDSMC" property="scsblhdsmc"/>
-        <result column="SCSBLHDXMC" property="scsblhdxmc"/>
-        <result column="SFZJLXMC" property="sfzjlxmc"/>
-        <result column="SFZJH" property="sfzjh"/>
-        <result column="JTXXDZQMC" property="jtxxdzqmc"/>
-        <result column="JTXXDZSMC" property="jtxxdzsmc"/>
-        <result column="JTXXDZXMC" property="jtxxdzxmc"/>
-        <result column="SZQMC" property="szqmc"/>
-        <result column="SZSMC" property="szsmc"/>
-        <result column="SZXMC" property="szxmc"/>
-        <result column="YHJSZQMC" property="yhjszqmc"/>
-        <result column="YHJSZSMC" property="yhjszsmc"/>
-        <result column="YHJSZXMC" property="yhjszxmc"/>
-        <result column="QRXZSJ" property="qrxzsj"/>
-        <result column="ZPDZ" property="zpdz"/>
-        <result column="YDDH" property="yddh"/>
-        <result column="XXMC" property="xxmc"/>
-        <result column="BJMC" property="bjmc"/>
-        <result column="BJBS" property="bjbs"/>
-        <result column="KJYDJLBS" property="kjydjlbs"/>
-        <result column="HKLX" property="hklx"/>
-
-        <!-- 新增扫描件字段 -->
-        <result column="KS_SFZ_ZM" property="ksSfzZm"/>
-        <result column="KS_SFZ_FM" property="ksSfzFm"/>
-        <result column="FQ_HKB_SY" property="fqHkbSy"/>
-        <result column="FQ_HKB_BN" property="fqHkbBn"/>
-        <result column="JHR_HKB_SY" property="jhrHkbSy"/>
-        <result column="JHR_HKB_BN" property="jhrHkbBn"/>
-        <result column="KS_HKB_SY" property="ksHkbSy"/>
-        <result column="KS_HKB_BN" property="ksHkbBn"/>
-        <result column="MQ_HKB_SY" property="mqHkbSy"/>
-        <result column="MQ_HKB_BN" property="mqHkbBn"/>
     </resultMap>
 
     <select id="findStudentInfoByKsh" resultMap="ksxxResultMap">
@@ -150,29 +116,26 @@
         FROM ksxx
         WHERE KSH = #{ksh}
     </select>
-
     <select id="findGuardianInfoByKsh" resultType="edu.qhjy.student.domain.Jhrxx">
         SELECT *
         FROM jhrxx
         WHERE KSH = #{ksh}
     </select>
-
     <select id="findAcademicHistoryByKsh" resultType="edu.qhjy.student.domain.Xlxx">
         SELECT *
         FROM xlxx
         WHERE KSH = #{ksh}
     </select>
-
     <select id="existsByKsh" resultType="int">
         SELECT count(1)
         FROM ksxx
         WHERE KSH = #{ksh}
     </select>
 
-
     <insert id="insertStudentInfo" parameterType="edu.qhjy.student.domain.Ksxx" useGeneratedKeys="true"
             keyProperty="ksbs">
-        INSERT INTO ksxx (KSH, XJH, XM, XB, MZ, CSRQ,
+        INSERT INTO ksxx (XXDM, -- [NEW] 新增XXDM字段
+                          KSH, XJH, XM, XB, MZ, CSRQ,
                           SCSBLHDQMC, SCSBLHDSMC, SCSBLHDXMC, SFZJLXMC, SFZJH,
                           JTXXDZQMC, JTXXDZSMC, JTXXDZXMC,
                           SZQMC, SZSMC, SZXMC, KQMC,
@@ -185,15 +148,22 @@
                           CJRXM, CJRGZRYM,
                           GXRXM, GXRGZRYM,
                           KJYDJLBS, HKLX,
-                          KS_SFZ_ZM, KS_SFZ_FM,
-                          FQ_HKB_SY, FQ_HKB_BN,
-                          JHR_HKB_SY, JHR_HKB_BN,
-                          KS_HKB_SY, KS_HKB_BN,
+                          KS_SFZ_ZM, KS_SFZ_FM, FQ_HKB_SY, FQ_HKB_BN,
+                          JHR_HKB_SY, JHR_HKB_BN, KS_HKB_SY, KS_HKB_BN,
                           MQ_HKB_SY, MQ_HKB_BN)
-        VALUES (#{ksh}, #{xjh}, #{xm}, #{xb}, #{mz}, #{csrq},
+        VALUES (#{xxdm}, -- [NEW] 插入XXDM的值
+                #{ksh}, #{xjh}, #{xm}, #{xb}, #{mz}, #{csrq},
                 #{scsblhdqmc}, #{scsblhdsmc}, #{scsblhdxmc}, #{sfzjlxmc}, #{sfzjh},
                 #{jtxxdzqmc}, #{jtxxdzsmc}, #{jtxxdzxmc},
-                #{szqmc}, #{szsmc}, #{szxmc}, (SELECT kqmc FROM kqxx WHERE kqdm = (SELECT kqdm FROM xxjbxx WHERE xxmc = #{xxmc})),
+                #{szqmc}, #{szsmc}, #{szxmc},
+                   -- [REFACTORED] 重写获取KQMC的子查询
+                (SELECT area.MC
+                 FROM XYZDK school
+                          JOIN XYZDK area ON SUBSTR(school.DM, 1, 2) = area.DM
+                 WHERE school.DM = #{xxdm}
+                   AND school.JH = 'ZX'
+                   AND area.JH = 'KD'
+                 LIMIT 1),
                 #{yhjszqmc}, #{yhjszsmc}, #{yhjszxmc},
                 #{qrxzsj}, #{qryy}, #{zqzh}, #{qyzh},
                 #{zpdz}, #{zzmm}, #{kslx},
@@ -203,10 +173,8 @@
                 #{cjrxm}, #{cjrgzrym},
                 #{gxrxm}, #{gxrgzrym},
                 #{kjydjlbs}, #{hklx},
-                #{ksSfzZm}, #{ksSfzFm},
-                #{fqHkbSy}, #{fqHkbBn},
-                #{jhrHkbSy}, #{jhrHkbBn},
-                #{ksHkbSy}, #{ksHkbBn},
+                #{ksSfzZm}, #{ksSfzFm}, #{fqHkbSy}, #{fqHkbBn},
+                #{jhrHkbSy}, #{jhrHkbBn}, #{ksHkbSy}, #{ksHkbBn},
                 #{mqHkbSy}, #{mqHkbBn})
     </insert>
 
@@ -215,11 +183,9 @@
         VALUES
         <foreach collection="guardians" item="item" separator=",">
             (#{item.ksh}, #{item.gx}, #{item.xm}, #{item.sfzjh},#{item.szqmc},#{item.szsmc},#{item.szxmc}, #{item.mz},
-            #{item.yddh}, #{item.gzdwmc},
-            #{item.gzdwzw})
+            #{item.yddh}, #{item.gzdwmc}, #{item.gzdwzw})
         </foreach>
     </insert>
-
     <insert id="insertAcademicHistories">
         INSERT INTO xlxx (KSH, XL, KSRQ, JZRQ, XXMC, ZMRXM, ZMRZW, ZMRDW)
         VALUES
@@ -229,10 +195,10 @@
         </foreach>
     </insert>
 
-
     <update id="updateStudentInfo" parameterType="edu.qhjy.student.domain.Ksxx">
         UPDATE ksxx
         <set>
+            <if test="xxdm != null">xxdm = #{xxdm},</if>
             <if test="xjh != null">xjh = #{xjh},</if>
             <if test="xm != null">xm = #{xm},</if>
             <if test="xb != null">xb = #{xb},</if>
@@ -256,7 +222,6 @@
             <if test="szsmc != null">szsmc = #{szsmc},</if>
             <if test="szxmc != null">szxmc = #{szxmc},</if>
             <if test="qrxzsj != null">qrxzsj = #{qrxzsj},</if>
-            <!--            <if test="zpdz != null">zpdz = #{zpdz},</if>-->
             <if test="bjbs != null">bjbs = #{bjbs},</if>
             <if test="mzyyskyz != null">mzyyskyz = #{mzyyskyz},</if>
             <if test="ysyz != null">ysyz = #{ysyz},</if>
@@ -269,16 +234,6 @@
             <if test="kjztmc != null">kjztmc = #{kjztmc},</if>
             <if test="kslx != null">kslx = #{kslx},</if>
             <if test="hklx != null">hklx = #{hklx},</if>
-            <!--            <if test="ksSfzZm != null">ks_sfz_zm = #{ksSfzZm},</if>-->
-            <!--            <if test="ksSfzFm != null">ks_sfz_fm = #{ksSfzFm},</if>-->
-            <!--            <if test="fqHkbSy != null">fq_hkb_sy = #{fqHkbSy},</if>-->
-            <!--            <if test="fqHkbBn != null">fq_hkb_bn = #{fqHkbBn},</if>-->
-            <!--            <if test="jhrHkbSy != null">jhr_hkb_sy = #{jhrHkbSy},</if>-->
-            <!--            <if test="jhrHkbBn != null">jhr_hkb_bn = #{jhrHkbBn},</if>-->
-            <!--            <if test="ksHkbSy != null">ks_hkb_sy = #{ksHkbSy},</if>-->
-            <!--            <if test="ksHkbBn != null">ks_hkb_bn = #{ksHkbBn},</if>-->
-            <!--            <if test="mqHkbSy != null">mq_hkb_sy = #{mqHkbSy},</if>-->
-            <!--            <if test="mqHkbBn != null">mq_hkb_bn = #{mqHkbBn},</if>-->
             zpdz = #{zpdz},
             ks_sfz_zm = #{ksSfzZm},
             ks_sfz_fm = #{ksSfzFm},
@@ -299,13 +254,11 @@
         FROM jhrxx
         WHERE KSH = #{ksh}
     </delete>
-
     <delete id="deleteAcademicHistoriesByKsh">
         DELETE
         FROM xlxx
         WHERE KSH = #{ksh}
     </delete>
-
     <delete id="deleteStudentByKsh">
         DELETE
         FROM ksxx
@@ -314,7 +267,8 @@
 
     <select id="findIfSchoolExistBySchoolName" resultType="int">
         SELECT COUNT(1)
-        FROM xxjbxx
-        WHERE XXMC = #{xxmc}
+        FROM XYZDK
+        WHERE MC = #{xxmc}
+          AND JH = 'ZX'
     </select>
 </mapper>

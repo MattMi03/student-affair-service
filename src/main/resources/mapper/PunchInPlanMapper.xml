@@ -13,9 +13,9 @@
         FROM
         dkjh d
         LEFT JOIN XYZDK school
-        ON d.XXDM = school.DM AND school.JH = 'ZX'   -- 学校
+        ON d.XXDM = school.DM AND school.JH = 'ZX' -- 学校
         LEFT JOIN XYZDK kq
-        ON d.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD'  -- 区县/考区
+        ON d.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD' -- 区县/考区
         <where>
             <if test="kqdm != null and kqdm != ''">
                 AND kq.DM = #{kqdm}
@@ -93,6 +93,6 @@
     <select id="findAllSemesters" resultType="java.lang.String">
         SELECT DISTINCT XNMC
         FROM dkjh
-        ORDER BY SUBSTR(XNMC,1,4) DESC, SUBSTR(XNMC,6,4) DESC, SUBSTR(XNMC,11,1) DESC
+        ORDER BY SUBSTR(XNMC, 1, 4) DESC, SUBSTR(XNMC, 6, 4) DESC, SUBSTR(XNMC, 11, 1) DESC
     </select>
 </mapper>

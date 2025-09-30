@@ -16,33 +16,33 @@
 
     <select id="getBasicInfoByKsh" parameterType="edu.qhjy.statuschange.dto.BasicInfoQueryDTO" resultMap="basicInfo">
         SELECT
-        ks.ksh,
-        ks.kjztmc,
-        ks.xm, -- 姓名
-        ks.xb, -- 性别
-        ks.csrq, -- 出生日期
-        ks.sfzjh, -- 身份证号
-        ks.mz, -- 民族
-        ks.xxmc, -- 学校名称
-        ks.bjmc, -- 班级名称
-        concat(kq.SSXZQHMC, ' ', kq.KQMC) as zbmc, -- 招办名称
+        ks.KSH AS ksh,
+        ks.KJZTMC AS kjztmc,
+        ks.XM AS xm, -- 姓名
+        ks.XB AS xb, -- 性别
+        ks.CSRQ AS csrq, -- 出生日期
+        ks.SFZJH AS sfzjh, -- 身份证号
+        ks.MZ AS mz, -- 民族
+        school.MC AS xxmc, -- 学校名称
+        ks.BJMC AS bjmc, -- 班级名称
+        CONCAT(szs.MC, ' ', kq.MC) AS zbmc, -- 招办名称（地市 + 考区）
         ks.JB AS jdnj
-        FROM ksxx ks
-        LEFT JOIN xxjbxx xx ON ks.xxmc = xx.xxmc
-        LEFT JOIN kqxx kq ON xx.KQDM = kq.KQDM
+        FROM KSXX ks
+        LEFT JOIN XYZDK school ON ks.XXDM = school.DM AND school.JH = 'ZX' -- 学校
+        LEFT JOIN XYZDK kq ON ks.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD' -- 考区
+        LEFT JOIN XYZDK szs ON ks.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ' -- 地市
         <where>
             <if test="ksh != null and ksh != ''">
-                AND ks.ksh = #{ksh}
+                AND ks.KSH = #{ksh}
             </if>
             <if test="xm != null and xm != ''">
-                AND ks.xm LIKE CONCAT('%', #{xm}, '%')
+                AND ks.XM LIKE CONCAT('%', #{xm}, '%')
             </if>
             <if test="sfzjh != null and sfzjh != ''">
-                AND ks.sfzjh = #{sfzjh}
+                AND ks.SFZJH = #{sfzjh}
             </if>
         </where>
     </select>
-
 
     <resultMap id="LateRegistrationListResultMap" type="edu.qhjy.statuschange.vo.LateRegistrationListVO">
         <id column="kjydjlbs" property="kjydjlbs"/>
@@ -575,7 +575,8 @@
         VALUES (#{ksh}, #{xm}, #{xb}, #{mz}, #{sfzjh}, #{zbmc}, #{kjydlxbs}, NOW(), #{shzt}, #{shjd})
     </insert>
 
-    <select id="getKjydlxbsByKjydjlbs" parameterType="java.lang.Long" resultType="edu.qhjy.statuschange.dto.delete.KjydjlRecordDTO">
+    <select id="getKjydlxbsByKjydjlbs" parameterType="java.lang.Long"
+            resultType="edu.qhjy.statuschange.dto.delete.KjydjlRecordDTO">
         SELECT KJYDLXBS, SHZT
         FROM kjydjl
         WHERE KJYDJLBS = #{kjydjlbs}
@@ -696,42 +697,45 @@
             resultMap="selectInformationChangeSummaryBySchoolResultMap">
 
         SELECT
-        xx.XXMC AS xxmc,
-        ks.JB AS jb,
-        xx.KQMC AS kqmc,
+        school.MC AS xxmc, -- 学校
+        ks.JB AS jb, -- 年级
+        kq.MC AS kqmc, -- 考区
 
-        COUNT(CASE WHEN j.KJYDLXBS = 3 THEN 1 END) AS keyPropertyChangeCount, -- 关键信息变更
-        COUNT(CASE WHEN j.KJYDLXBS = 2 AND x.XFXBJ = 1 THEN 1 END) AS returnSchoolCount, -- 复学
-        COUNT(CASE WHEN j.KJYDLXBS = 1 AND x.XFXBJ = 0 THEN 1 END) AS leaveSchoolCount, -- 休学
+        COUNT(CASE WHEN j.KJYDLXBS = 3 THEN 1 END) AS keyPropertyChangeCount,
+        COUNT(CASE WHEN j.KJYDLXBS = 2 AND x.XFXBJ = 1 THEN 1 END) AS returnSchoolCount,
+        COUNT(CASE WHEN j.KJYDLXBS = 1 AND x.XFXBJ = 0 THEN 1 END) AS leaveSchoolCount,
 
-        COUNT(CASE WHEN z.ZXLX = 2 THEN 1 END) AS inProvinceInCount, -- 省内转入
-        COUNT(CASE WHEN z.ZXLX = 1 THEN 1 END) AS inProvinceOutCount, -- 省内转出
-        COUNT(CASE WHEN z.ZXLX = 4 THEN 1 END) AS outOfProvinceInCount, -- 省外转入
-        COUNT(CASE WHEN z.ZXLX = 3 THEN 1 END) AS outOfProvinceOutCount -- 转出省外
+        COUNT(CASE WHEN z.ZXLX = 2 THEN 1 END) AS inProvinceInCount,
+        COUNT(CASE WHEN z.ZXLX = 1 THEN 1 END) AS inProvinceOutCount,
+        COUNT(CASE WHEN z.ZXLX = 4 THEN 1 END) AS outOfProvinceInCount,
+        COUNT(CASE WHEN z.ZXLX = 3 THEN 1 END) AS outOfProvinceOutCount
 
-        FROM ksxx ks
-        LEFT JOIN kjydjl j ON ks.KSH = j.KSH
-        LEFT JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
-        LEFT JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
-        LEFT JOIN xxjbxx xx ON ks.XXMC = xx.XXMC
+        FROM KSXX ks
+        LEFT JOIN KJYDJL j ON ks.KSH = j.KSH
+        LEFT JOIN XFXJL x ON j.KJYDJLBS = x.KJYDJLBS
+        LEFT JOIN ZXJL z ON j.KJYDJLBS = z.KJYDJLBS
+
+        -- 使用XYZDK代替原来的学校和考区表
+        LEFT JOIN XYZDK school ON ks.XXDM = school.DM AND school.JH = 'ZX' -- 学校
+        LEFT JOIN XYZDK kq ON ks.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD' -- 考区
 
         <where>
             <if test="xxdm != null and xxdm != ''">
-                AND xx.XXDM = #{xxdm}
+                AND school.DM = #{xxdm}
             </if>
             <if test="kqdm != null and kqdm != ''">
-                AND xx.KQDM = #{kqdm}
+                AND kq.DM = #{kqdm}
             </if>
             <if test="jb != null">
                 AND ks.JB = #{jb}
             </if>
             <if test="szsdm != null and szsdm != ''">
-                AND xx.SZSDM = #{szsdm}
+                AND ks.XXDM LIKE #{szsdm} || '%' -- 地市可以通过前缀匹配
             </if>
         </where>
 
-        GROUP BY xx.XXMC, ks.JB, xx.KQMC
-        ORDER BY xx.XXMC, ks.JB DESC
+        GROUP BY school.MC, ks.JB, kq.MC
+        ORDER BY school.MC, ks.JB DESC
     </select>
 
 
@@ -847,12 +851,12 @@
     </select>
 
     <select id="findSchoolNameByBjbs" resultType="java.lang.String">
-        SELECT xx.XXMC
+        SELECT xx.MC
         FROM bjxx bj
-                 JOIN xxjbxx xx ON bj.XXDM = xx.XXDM
+                 JOIN
+             XYZDK xx ON bj.XXDM = xx.DM AND xx.JH = 'ZX'
         WHERE BJBS = #{bjbs}
     </select>
-
 
     <update id="setFxkshByKjydjlbs">
         UPDATE xfxjl
