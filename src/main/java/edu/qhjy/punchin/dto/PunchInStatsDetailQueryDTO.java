@@ -13,7 +13,6 @@ public class PunchInStatsDetailQueryDTO {
     private Long bjbs;
     @NotBlank(message = "学期不能为空")
     private String xnmc;
-
     // 分页参数
     private int pageNum = 1;
     private int pageSize = 10;

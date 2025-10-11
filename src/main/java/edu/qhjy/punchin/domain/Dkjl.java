@@ -30,4 +30,5 @@ public class Dkjl {
     private String gxrxm;          // 更新人姓名
     private String gxrgzrym;       // 更新人工作人员码
     private LocalDateTime gxsj;    // 更新时间
+    private String dkfs;           // 打卡方式
 }

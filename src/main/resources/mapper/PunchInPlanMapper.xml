@@ -4,19 +4,18 @@
 
     <select id="findForPage" resultType="edu.qhjy.punchin.vo.PunchInPlanListVO">
         SELECT
-        d.DKJHBS,
-        d.XNMC,
-        d.XQKSRQ,
-        d.XQJZRQ,
+        d.DKJHBS, d.XNMC, d.XQKSRQ, d.XQJZRQ,
         school.MC AS xxmc,
         kq.MC AS kqmc
         FROM
         dkjh d
-        LEFT JOIN XYZDK school
-        ON d.XXDM = school.DM AND school.JH = 'ZX' -- 学校
-        LEFT JOIN XYZDK kq
-        ON d.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD' -- 区县/考区
+        LEFT JOIN XYZDK school ON d.XXDM = school.DM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK kq ON SUBSTR(d.XXDM, 1, 2) = kq.DM AND kq.JH = 'KD'
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND d.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+
             <if test="kqdm != null and kqdm != ''">
                 AND kq.DM = #{kqdm}
             </if>

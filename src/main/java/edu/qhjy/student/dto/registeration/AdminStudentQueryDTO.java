@@ -1,5 +1,6 @@
 package edu.qhjy.student.dto.registeration;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 @Data
@@ -19,6 +20,10 @@ public class AdminStudentQueryDTO {
 
     // --- 状态下拉框 ---
     private String shzt;  // 考籍状态名称
+
+
+    @JsonIgnore
+    private String permissionDm;
 
     // --- 分页参数 ---
     private int pageNum = 1;

@@ -31,18 +31,30 @@
         b.YSYZ AS ysyz,
         b.MZYYSKYZ AS mzyyskyz,
         szs.MC AS szsmc,
-        k.MC AS kqmc
+        k.MC AS kqmc,
+        COALESCE(COUNT(ks.KSH), 0) AS bjrs -- ✅ 班级人数
+
         FROM
         BJXX b
-        JOIN XYZDK s ON b.XXDM = s.DM AND s.JH = 'ZX' -- 学校
-        JOIN XYZDK k ON b.XXDM LIKE k.DM || '%' AND k.JH = 'KD' -- 考区
-        JOIN XYZDK szs ON b.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ' -- 地市
+        LEFT JOIN KSXX ks ON ks.BJBS = b.BJBS
+        JOIN XYZDK s ON b.XXDM = s.DM AND s.JH = 'ZX'
+        JOIN XYZDK k ON b.XXDM LIKE k.DM || '%' AND k.JH = 'KD'
+        JOIN XYZDK szs ON b.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ'
+
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND b.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             <if test="jbny != null">AND b.JB = #{jbny}</if>
             <if test="xxdm != null and xxdm != ''">AND s.DM = #{xxdm}</if>
             <if test="kqdm != null and kqdm != ''">AND k.DM = #{kqdm}</if>
             <if test="szsdm != null and szsdm != ''">AND szs.DM = #{szsdm}</if>
         </where>
+
+        GROUP BY
+        szs.DM, k.DM, s.DM, s.MC,
+        b.BJBS, b.BJMC, b.JB, b.BZRXM, b.BJLX, b.YSYZ, b.MZYYSKYZ, szs.MC, k.MC
+
         ORDER BY
         s.DM, b.JB, b.BJMC
     </select>
@@ -93,16 +105,34 @@
         where bjbs = #{bjbs}
     </select>
 
-    <select id="findAvailableStudentByClassId" resultType="edu.qhjy.student.vo.StudentForClassVO">
-        SELECT ks.KSH,
-               ks.SFZJH,
-               ks.XM,
-               bj.BJMC
-        FROM ksxx ks
-                 INNER JOIN bjxx bj ON ks.JB = bj.JB AND ks.XXDM = bj.XXDM
-                 INNER JOIN xyzdk xx ON ks.XXDM = xx.DM AND xx.JH = 'ZX'
-        WHERE bj.BJBS = #{bjbs}
-          AND ks.KJZTMC = '正常在校'
+    <select id="findAvailableStudentByClassId"
+            parameterType="edu.qhjy.student.dto.classmanager.StudentAvailableQueryDTO"
+            resultType="edu.qhjy.student.vo.StudentForClassVO">
+        SELECT
+        ks.KSH,
+        ks.SFZJH,
+        ks.XM,
+        ks.BJMC
+        FROM
+        ksxx ks
+        INNER JOIN
+        bjxx bj ON ks.JB = bj.JB AND ks.XXDM = bj.XXDM
+        INNER JOIN
+        xyzdk xx ON ks.XXDM = xx.DM AND xx.JH = 'ZX'
+        <where>
+            AND bj.BJBS = #{bjbs}
+            AND ks.KJZTMC = '正常在校'
+
+            <if test="ksh != null and ksh != ''">
+                AND ks.KSH LIKE CONCAT('%', #{ksh}, '%')
+            </if>
+            <if test="sfzjh != null and sfzjh != ''">
+                AND ks.SFZJH LIKE CONCAT('%', #{sfzjh}, '%')
+            </if>
+            <if test="xm != null and xm != ''">
+                AND ks.XM LIKE CONCAT('%', #{xm}, '%')
+            </if>
+        </where>
     </select>
 
     <update id="clearStudentsFromClass" parameterType="long">
@@ -113,7 +143,7 @@
     </update>
 
     <select id="getBjmcAndJbByBjbs" resultType="edu.qhjy.student.dto.classmanager.BjxxDTO" parameterType="long">
-        SELECT BJMC, JB
+        SELECT BJMC, JB, XXDM
         FROM bjxx
         WHERE BJBS = #{bjbs}
     </select>
@@ -139,4 +169,65 @@
           AND bj.BJMC = #{bjmc}
     </select>
 
+    <select id="findByXxdmAndBjmc" resultType="edu.qhjy.student.domain.Bjxx">
+        SELECT *
+        FROM bjxx
+        WHERE XXDM = #{xxdm}
+          AND BJMC = #{bjmc}
+        LIMIT 1
+    </select>
+
+    <select id="findSchoolByXxdm" resultType="int">
+        SELECT count(*)
+        from xyzdk
+        where dm = #{xxdm}
+    </select>
+
+    <select id="findClassesBySchoolAndNameBatch" resultType="edu.qhjy.student.domain.Bjxx">
+        SELECT *
+        FROM bjxx
+        WHERE (XXDM, BJMC) IN
+        <foreach collection="pairs" item="pair" open="(" separator="," close=")">
+            (#{pair.xxdm}, #{pair.bjmc})
+        </foreach>
+    </select>
+
+    <select id="findStudentsByKshList" resultType="edu.qhjy.student.domain.Ksxx" parameterType="java.util.List">
+        SELECT *
+        FROM ksxx
+        WHERE ksh IN
+        <foreach collection="list" item="ksh" open="(" separator="," close=")">
+            #{ksh}
+        </foreach>
+    </select>
+
+    <update id="removeStudentsFromClass" parameterType="list">
+        UPDATE ksxx
+        SET BJBS = NULL,
+        BJMC = NULL
+        WHERE KSH IN
+        <foreach collection="list" item="ksh" open="(" separator="," close=")">
+            #{ksh}
+        </foreach>
+    </update>
+
+    <select id="findStudentsForClassAssignmentTemplate"
+            resultType="edu.qhjy.student.dto.classmanager.ClassAssignmentData">
+        SELECT KSH,
+               XM,
+               SFZJH,
+               JB
+        FROM ksxx
+        WHERE XXDM = #{xxdm}
+          AND JB = #{jb}
+          AND KJZTMC = '正常在校'
+        ORDER BY BJMC, KSH
+    </select>
+
+    <select id="findSchoolNameByCode" resultType="java.lang.String" parameterType="string">
+        SELECT MC
+        FROM xyzdk
+        WHERE DM = #{xxdm}
+          AND JH = 'ZX'
+    </select>
 </mapper>

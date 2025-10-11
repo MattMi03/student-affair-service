@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.statuschange.mapper.YdjbMapper">
+
+    <resultMap id="ListResultMap" type="edu.qhjy.statuschange.vo.remoteclass.YdjbListVO">
+        <id property="ydjbbs" column="ydjbbs"/>
+        <result property="kqmc" column="kqmc"/>
+        <result property="xxmc" column="xxmc"/>
+        <result property="jb" column="jb"/>
+        <result property="totalStudents" column="total_students"/>
+        <result property="shzt" column="shzt"/>
+        <result property="shyj" column="shyj"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="edu.qhjy.statuschange.domain.Ydjb" useGeneratedKeys="true" keyProperty="ydjbbs">
+        INSERT INTO YDJB (XXDM, JB, RS, KJZC_REASON, ATTACHMENT, B_TYPE, SHZT, CJRXM, CJSJ)
+        VALUES (#{xxdm}, #{jb}, #{rs}, #{kjzcReason}, #{attachment}, #{bType}, '待审核', #{cjrxm}, NOW())
+    </insert>
+
+    <delete id="deleteById">
+        DELETE
+        FROM YDJB
+        WHERE YDJBBS = #{ydjbbs}
+    </delete>
+
+    <update id="update" parameterType="edu.qhjy.statuschange.domain.Ydjb">
+        UPDATE YDJB
+        <set>
+            <if test="xxdm != null">XXDM = #{xxdm},</if>
+            <if test="jb != null">JB = #{jb},</if>
+            <if test="rs != null">RS = #{rs},</if>
+            <if test="kjzcReason != null">KJZC_REASON = #{kjzcReason},</if>
+            <if test="attachment != null">ATTACHMENT = #{attachment},</if>
+            <if test="shzt != null">SHZT = #{shzt},</if>
+            <if test="shyj != null">SHYJ = #{shyj},</if>
+            <if test="shrxm != null">SHRXM = #{shrxm},</if>
+            <if test="shsj != null">SHSJ = #{shsj},</if>
+            <if test="shjd != null">SHJD = #{shjd},</if>
+        </set>
+        WHERE YDJBBS = #{ydjbbs}
+    </update>
+
+    <select id="findById" resultType="edu.qhjy.statuschange.domain.Ydjb">
+        SELECT *
+        FROM YDJB
+        WHERE YDJBBS = #{ydjbbs}
+    </select>
+
+    <select id="findForPage" resultMap="ListResultMap">
+        SELECT
+        y.YDJBBS,
+        area.MC AS kqmc,
+        school.MC AS xxmc,
+        y.JB,
+        y.RS as total_students,
+        y.SHZT,
+        y.SHYJ,
+        y.SHRXM,
+        y.SHJD,
+        y.SHSJ
+        FROM YDJB y
+        JOIN XYZDK school ON y.XXDM = school.DM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON SUBSTR(y.XXDM, 1, 2) = area.DM AND area.JH = 'KD'
+        LEFT JOIN XYZDK city ON SUBSTR(y.XXDM, 1, 1) = city.DM AND city.JH = 'KQ'
+        <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND y.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+            <if test="szsdm != null and szsdm != ''">AND city.DM = #{szsdm}</if>
+            <if test="kqdm != null and kqdm != ''">AND area.DM = #{kqdm}</if>
+            <if test="xxdm != null and xxdm != ''">AND y.XXDM = #{xxdm}</if>
+            <if test="jb != null">AND y.JB = #{jb}</if>
+            <if test="bType != null and bType != ''">AND y.B_TYPE = #{bType}</if>
+        </where>
+        ORDER BY y.CJSJ DESC
+    </select>
+
+    <select id="findStudentsByYdjbbs" resultType="edu.qhjy.statuschange.vo.remoteclass.YdjbStudentVO">
+        SELECT
+        s.KSBS, s.ZPDZ, s.XXMC, s.KSH, s.XM, s.SFZJH, s.JB, s.BJMC, s.XB, s.MZ
+        FROM ksxx s
+        JOIN YDJB_KS yks ON s.KSBS = yks.KSBS
+        WHERE yks.YDJBBS = #{ydjbbs}
+        <if test="query.ksh != null and query.ksh != ''">AND s.KSH LIKE CONCAT('%', #{query.ksh}, '%')</if>
+        <if test="query.xm != null and query.xm != ''">AND s.XM LIKE CONCAT('%', #{query.xm}, '%')</if>
+        <if test="query.sfzjh != null and query.sfzjh != ''">AND s.SFZJH LIKE CONCAT('%', #{query.sfzjh}, '%')</if>
+        ORDER BY s.KSH
+    </select>
+
+    <insert id="addStudentsToYdjb">
+        INSERT INTO YDJB_KS (YDJBBS, KSBS) VALUES
+        <foreach collection="ksbsList" item="ksbs" separator=",">
+            (#{ydjbbs}, #{ksbs})
+        </foreach>
+    </insert>
+
+    <delete id="removeStudentsFromYdjb">
+        DELETE FROM YDJB_KS
+        WHERE YDJBBS = #{ydjbbs}
+        AND KSBS IN
+        <foreach collection="ksbsList" item="ksbs" open="(" separator="," close=")">
+            #{ksbs}
+        </foreach>
+    </delete>
+
+    <delete id="clearStudentsFromYdjb">
+        DELETE
+        FROM YDJB_KS
+        WHERE YDJBBS = #{ydjbbs}
+    </delete>
+
+    <delete id="deleteBatchByIds">
+        DELETE FROM YDJB WHERE YDJBBS IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

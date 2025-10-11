@@ -10,10 +10,12 @@ server:
     include-message: always
     include-binding-errors: always
     include-stacktrace: always
+  servlet:
+    context-path: /student-affair-server
 
 spring:
   datasource:
-    url: jdbc:dm://47.120.37.33:5236/EDU_COPY?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
+    url: jdbc:dm://47.120.37.33:5236/EDU_DATABASE?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
     driver-class-name: dm.jdbc.driver.DmDriver
     username: SYSDBA
     password: SYSDBA001
@@ -24,29 +26,29 @@ spring:
       discovery:
         enabled: false
 
+  data:
+    redis:
+      cluster:
+        nodes:
+          - localhost:30001
+          - localhost:30002
+          - localhost:30003
+          - localhost:30004
+          - localhost:30005
+          - localhost:30006
+      #      password: 1q2w3e4r
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 200  # 至少增加到100-200，以匹配并发需求
+          max-idle: 50     # 同样可以适当调高
+          min-idle: 10     # 保持一些空闲连接
+          max-wait: -1ms
+
+
 springdoc:
   swagger-ui:
     doc-expansion: none
-#  data:
-#    redis:
-#      cluster:
-#        nodes:
-#          - localhost:30001
-#          - localhost:30002
-#          - localhost:30003
-#          - localhost:30004
-#          - localhost:30005
-#          - localhost:30006
-##      password: 1q2w3e4r
-#      timeout: 5000ms
-#      lettuce:
-#        pool:
-#          max-active: 200  # 至少增加到100-200，以匹配并发需求
-#          max-idle: 50     # 同样可以适当调高
-#          min-idle: 10     # 保持一些空闲连接
-#          max-wait: -1ms
-
-
 
 jwt:
   secret: cWhjYWgtZXhhbS1zeXN0ZW0tand0LXNlY3JldC1rZXktMjAyNC10aGlzLWtleS1tdXN0LWJlLWF0LWxlYXN0LTY0LWNoYXJhY3RlcnMtbG9uZy1mb3ItaHM1MTItYWxnb3JpdGhtLXNlY3VyaXR5

@@ -1,5 +1,6 @@
 package edu.qhjy.punchin.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 @Data
@@ -9,4 +10,7 @@ public class LeaveApplicationQueryDTO {
     private Integer jb;
     private Long bjbs;
     private String xnmc;
+
+    @JsonIgnore
+    private String permissionDm;
 }

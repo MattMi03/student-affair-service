@@ -32,6 +32,9 @@
         LEFT JOIN XYZDK kq ON ks.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD' -- 考区
         LEFT JOIN XYZDK szs ON ks.XXDM LIKE szs.DM || '%' AND szs.JH = 'KQ' -- 地市
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             <if test="ksh != null and ksh != ''">
                 AND ks.KSH = #{ksh}
             </if>
@@ -72,7 +75,7 @@
         ks.BJMC AS bjmc,
         j.CJSJ AS blsj,
         ks.XXMC AS blxx,
-        j.SHZT AS shzt, j.SHJD AS shjd,
+        j.SHZT AS shzt, j.SHJD AS shjd, ks.KSLX AS kslx, j.SHSJ AS shsj, j.SHRXM AS shrxm,
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
         j.MZ AS mz,
@@ -82,6 +85,9 @@
         -- 使用 INNER JOIN 关联 ksxx 表，确保只查询出补录的学生
         INNER JOIN ksxx ks ON j.KJYDJLBS = ks.KJYDJLBS
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             -- 核心筛选：只查询类型为“新生补录”的记录
             j.KJYDLXBS = 6
 
@@ -125,9 +131,11 @@
         j.MZ AS mz,
         j.SFZJH AS sfzjh,
         j.CJSJ AS tjsj,
-        j.SHZT AS shzt, j.SHJD AS shjd,
+        j.SHZT AS shzt, j.SHJD AS shjd, ks.KSLX AS kslx, 
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
+        j.SHRXM AS shrxm,
+        j.shsj AS shsj,
 
         -- 从 xfxjl (休学分表) 获取
         x.XXYY AS xxyy,
@@ -146,9 +154,13 @@
         -- 为了获取级别和班级名称，需要关联学生表和班级表
         LEFT JOIN ksxx ks ON j.KSH = ks.KSH
         WHERE
+
         -- 筛选出所有休学申请
         j.KJYDLXBS = 1
         AND x.XFXBJ = 0
+        <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+            AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+        </if>
         <if test="ksh != null and ksh != ''">
             AND j.KSH = #{ksh}
         </if>
@@ -207,10 +219,12 @@
         j.MZ AS mz,
         j.SFZJH AS sfzjh,
         j.CJSJ AS cjsj,
-        j.SHZT AS shzt, j.SHJD AS shjd,
+        j.SHZT AS shzt,
+        j.SHJD AS shjd, ks.KSLX AS kslx, 
         j.SHYJ AS shyj,
         j.ZBMC AS zbmc,
-
+        j.SHRXM AS shrxm,
+        j.shsj AS shsj,
         x.XXMC AS xxmc, -- 休学名称
         x.jdnj AS jdnj, -- 级别年级
         x.XXYY AS xxyy, -- 休学原因
@@ -223,24 +237,27 @@
         x.XXSC AS xxsc,
         x.FXXJH AS fxxjh, -- 复学学籍号
         x.BZ AS bz -- 备注
-
         FROM
         kjydjl j
         INNER JOIN xfxjl x ON j.KJYDJLBS = x.KJYDJLBS
-        WHERE
-        j.KJYDLXBS = 2
-        AND x.XFXBJ = 1
-        <if test="ksh != null and ksh != ''">
-            AND j.KSH = #{ksh}
-        </if>
-        <if test="xm != null and xm != ''">
-            AND j.XM LIKE CONCAT('%', #{xm}, '%')
-        </if>
-        <if test="sfzjh != null and sfzjh != ''">
-            AND j.SFZJH = #{sfzjh}
-        </if>
-        ORDER BY
-        j.CJSJ DESC
+        LEFT JOIN ksxx ks ON j.KSH = ks.KSH   <!-- 👈 把学生表连上 -->
+        <where>
+            j.KJYDLXBS = 2
+            AND x.XFXBJ = 1
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+            <if test="ksh != null and ksh != ''">
+                AND j.KSH = #{ksh}
+            </if>
+            <if test="xm != null and xm != ''">
+                AND j.XM LIKE CONCAT('%', #{xm}, '%')
+            </if>
+            <if test="sfzjh != null and sfzjh != ''">
+                AND j.SFZJH = #{sfzjh}
+            </if>
+        </where>
+        ORDER BY j.CJSJ DESC
     </select>
 
     <update id="updateXfxjlDetails" parameterType="edu.qhjy.statuschange.domain.Xfxjl">
@@ -330,8 +347,10 @@
         j.KSH AS ksh,
         j.XM AS xm,
         j.SFZJH AS sfzjh,
-        j.SHZT AS shzt, j.SHJD AS shjd,
+        j.SHZT AS shzt, j.SHJD AS shjd, ks.KSLX AS kslx, 
         j.SHYJ AS shyj,
+        j.SHRXM AS shrxm,
+        j.SHSJ AS shsj,
         j.CJSJ AS tjsj,
         j.ZBMC AS zbmc,
         j.MZ AS mz,
@@ -358,6 +377,9 @@
         LEFT JOIN ksxx ks ON j.KSH = ks.KSH
         <where>
             j.KJYDLXBS = 4
+            <if test="common.permissionDm != null and common.permissionDm != '' and common.permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{common.permissionDm}, '%')
+            </if>
             <if test="zxlx != null">
                 AND z.ZXLX = #{zxlx}
             </if>
@@ -371,6 +393,8 @@
                 AND j.SFZJH = #{common.sfzjh}
             </if>
         </where>
+        ORDER BY
+        j.CJSJ DESC
     </select>
 
     <update id="updateZxjlDetails" parameterType="edu.qhjy.statuschange.domain.Zxjl">
@@ -426,8 +450,10 @@
         l.LSYY AS lsyy,
         l.LSSJ AS lssj,
         j.CJSJ AS czsj,
-        j.SHZT AS shzt, j.SHJD AS shjd,
+        j.SHZT AS shzt, j.SHJD AS shjd, ks.KSLX AS kslx, 
         j.SHYJ AS shyj,
+        j.SHRXM AS shrxm,
+        j.SHSJ AS shsj,
         j.mz AS mz,
         j.xb AS xb,
         j.zbmc AS zbmc
@@ -438,6 +464,9 @@
         WHERE
         -- 筛选出所有流失申请
         j.KJYDLXBS = 5
+        <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+            AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+        </if>
         <if test="ksh != null and ksh != ''">
             AND j.KSH = #{ksh}
         </if>
@@ -482,7 +511,11 @@
         kjydjl j
         INNER JOIN cgdj c ON j.KJYDJLBS = c.KJYDJLBS
         WHERE
+
         j.KJYDLXBS = 7
+        <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+            AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+        </if>
         <if test="ksh != null and ksh != ''">
             AND j.KSH = #{ksh}
         </if>
@@ -492,6 +525,8 @@
         <if test="sfzjh != null and sfzjh != ''">
             AND j.SFZJH = #{sfzjh}
         </if>
+        ORDER BY
+        j.CJSJ DESC
     </select>
 
     <insert id="insertAbroadRegistration" parameterType="edu.qhjy.statuschange.domain.Cgdj">
@@ -536,8 +571,10 @@
         g.GQZ AS gqz,
         g.GHZ AS ghz,
         j.CJSJ AS czsj,
-        j.SHZT AS shzt, j.SHJD AS shjd,
+        j.SHZT AS shzt, j.SHJD AS shjd, ks.KSLX AS kslx, 
         j.SHYJ AS shyj,
+        j.SHRXM AS shrxm,
+        j.SHSJ AS shsj,
         j.ZBMC AS zbmc,
         j.MZ AS mz,
         j.XB AS xb,
@@ -550,6 +587,9 @@
         LEFT JOIN ksxx ks ON j.KSH = ks.KSH
         WHERE
         j.KJYDLXBS = 3
+        <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+            AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+        </if>
         <if test="ksh != null and ksh != ''">
             AND j.KSH = #{ksh}
         </if>
@@ -661,6 +701,9 @@
         LEFT JOIN zxjl z ON j.KJYDJLBS = z.KJYDJLBS
 
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             <if test="ksh != null and ksh != ''">
                 AND ks.KSH = #{ksh}
             </if>
@@ -720,6 +763,9 @@
         LEFT JOIN XYZDK kq ON ks.XXDM LIKE kq.DM || '%' AND kq.JH = 'KD' -- 考区
 
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             <if test="xxdm != null and xxdm != ''">
                 AND school.DM = #{xxdm}
             </if>
@@ -864,4 +910,11 @@
             XXSC  = #{xxsc}
         WHERE KJYDJLBS = #{kjydjlbs}
     </update>
+
+    <select id="findIfSchoolExistBySchoolName" resultType="int">
+        SELECT COUNT(1)
+        FROM XYZDK
+        WHERE MC = #{xxmc}
+          AND JH = 'ZX'
+    </select>
 </mapper>

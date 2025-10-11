@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.qhjy.qzsh.mapper.QzshMapper">
+
+    <resultMap id="ListResultMap" type="edu.qhjy.qzsh.vo.QzshListVO">
+        <id property="ksbs" column="ksbs"/>
+        <result property="ksh" column="ksh"/>
+        <result property="xm" column="xm"/>
+        <result property="sfzjh" column="sfzjh"/>
+        <result property="xxmc" column="xxmc"/>
+        <result property="jb" column="jb"/>
+        <result property="bjmc" column="bjmc"/>
+        <result property="kslx" column="kslx"/>
+        <result property="xblx" column="xblx"/>
+        <result property="qt" column="qt"/>
+        <result property="fjdz1" column="fjdz1"/>
+        <result property="fjdz2" column="fjdz2"/>
+    </resultMap>
+
+    <select id="findForPage" resultMap="ListResultMap">
+        SELECT
+        s.KSBS, s.KSH, s.XM, s.SFZJH, s.XXMC, s.JB, s.BJMC, s.XB, s.MZ,
+        q.KSLX, q.XBLX, q.QT, q.FJDZ1, q.FJDZ2, COALESCE(q.SHZT, '待提交') AS SHZT, q.SHYJ, q.SHRXM, q.SHSJ, q.SHJD
+        FROM ksxx s
+        LEFT JOIN QZSH q ON s.KSBS = q.KSBS
+        <where>
+            AND s.kjztmc = '正常在校'
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND s.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+            <if test="xxdm != null and xxdm != ''">AND s.XXDM = #{xxdm}</if>
+            <if test="jb != null">AND s.JB = #{jb}</if>
+            <if test="bjbs != null">AND s.BJBS = #{bjbs}</if>
+            <if test="ksh != null and ksh != ''">AND s.KSH LIKE CONCAT('%', #{ksh}, '%')</if>
+            <if test="xm != null and xm != ''">AND s.XM LIKE CONCAT('%', #{xm}, '%')</if>
+            <if test="sfzjh != null and sfzjh != ''">AND s.SFZJH LIKE CONCAT('%', #{sfzjh}, '%')</if>
+            <if test="kslx != null and kslx != ''">AND q.KSLX = #{kslx}</if>
+            <if test="xblx != null and xblx != ''">AND q.XBLX = #{xblx}</if>
+        </where>
+        ORDER BY s.XXDM, s.BJBS, s.KSH
+    </select>
+
+    <select id="findById" resultType="edu.qhjy.qzsh.domain.Qzsh">
+        SELECT *
+        FROM QZSH
+        WHERE KSBS = #{ksbs}
+    </select>
+
+    <select id="existsById" resultType="int">
+        SELECT COUNT(1)
+        FROM QZSH
+        WHERE KSBS = #{ksbs}
+    </select>
+
+    <insert id="insert" parameterType="edu.qhjy.qzsh.domain.Qzsh">
+        INSERT INTO QZSH (KSBS, KSLX, XBLX, QT, FJDZ1, FJDZ2, SHZT, SHJD, SHSJ, SHRXM, SHYJ)
+        VALUES (#{ksbs}, #{kslx}, #{xblx}, #{qt}, #{fjdz1}, #{fjdz2}, #{shzt}, #{shjd}, #{shsj}, #{shrxm}, #{shyj})
+    </insert>
+
+    <update id="update" parameterType="edu.qhjy.qzsh.domain.Qzsh">
+        UPDATE QZSH
+        <set>
+            <if test="kslx != null">KSLX = #{kslx},</if>
+            <if test="xblx != null">XBLX = #{xblx},</if>
+            <if test="qt != null">QT = #{qt},</if>
+            <if test="fjdz1 != null">FJDZ1 = #{fjdz1},</if>
+            <if test="fjdz2 != null">FJDZ2 = #{fjdz2},</if>
+            <if test="shzt != null">SHZT = #{shzt},</if>
+            <if test="shyj != null">SHYJ = #{shyj},</if>
+            <if test="shrxm != null">SHRXM = #{shrxm},</if>
+            <if test="shsj != null">SHSJ = #{shsj},</if>
+            <if test="shjd != null">SHJD = #{shjd},</if>
+        </set>
+        WHERE KSBS = #{ksbs}
+    </update>
+
+    <delete id="deleteById">
+        DELETE
+        FROM QZSH
+        WHERE KSBS = #{ksbs}
+    </delete>
+
+    <delete id="deleteBatchByIds">
+        DELETE FROM QZSH WHERE KSBS IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="existsByKsbs" resultType="int">
+        SELECT COUNT(1)
+        FROM KSXX
+        WHERE KSBS = #{ksbs}
+    </select>
+
+    <select id="findKshByKsbs" resultType="java.lang.String">
+        SELECT KSH
+        FROM ksxx
+        WHERE KSBS = #{ksbs}
+    </select>
+</mapper>

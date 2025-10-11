@@ -12,6 +12,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface StudentRegistrationMapper {
@@ -47,4 +48,16 @@ public interface StudentRegistrationMapper {
     void deleteStudentByKsh(String ksh);
 
     String findSchoolDmBySchoolName(String schoolName);
+
+    List<Map<String, Object>> findSchoolDmsByNames(@Param("list") List<String> names);
+
+    List<String> findExistingKshs(@Param("list") List<String> kshList);
+
+    void batchInsertStudents(@Param("list") List<Ksxx> students);
+
+    void batchInsertGuardians(@Param("list") List<Jhrxx> guardians);
+
+    void batchInsertAcademicHistories(@Param("list") List<Xlxx> histories);
+
+    List<String> findExistingSfzjhs(@Param("list") List<String> sfzjhList);
 }

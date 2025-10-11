@@ -1,12 +1,12 @@
 package edu.qhjy.statuschange.controller.admin;
 
 import com.github.pagehelper.PageInfo;
+import edu.qhjy.aop.UserContext;
 import edu.qhjy.common.Result;
 import edu.qhjy.statuschange.dto.*;
 import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
 import edu.qhjy.statuschange.dto.audit.ResumptionUpdateDTO;
 import edu.qhjy.statuschange.dto.audit.TransUpdateDTO;
-import edu.qhjy.statuschange.dto.audit.UserInfo;
 import edu.qhjy.statuschange.service.StatusChangeService;
 import edu.qhjy.statuschange.vo.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,8 +16,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 @RestController
@@ -250,42 +248,12 @@ public class AdminStatusChangeController {
     @PostMapping("/{kjydjlbs}/audit")
     @Operation(summary = "审核学籍异动申请", description = "对指定ID的学籍异动申请进行审核（通过或驳回）")
     public Result<Void> audit(HttpServletRequest request,
-                              @PathVariable Long kjydjlbs, @Validated @RequestBody AuditRequestDTO dto,
-                              @RequestParam(value = "getName", required = false) String getName,
-                              @RequestParam(value = "getGroupId", required = false) String getGroupId,
-                              @RequestParam(value = "getDm", required = false) String getDm) {
+                              @PathVariable Long kjydjlbs, @Validated @RequestBody AuditRequestDTO dto) {
         Collections.list(request.getHeaderNames()).forEach(headerName -> {
             System.out.println("Header: " + headerName + " = " + request.getHeader(headerName));
         });
 
-        // 从请求头获取并解析JWT令牌，提取用户信息
-        String dm = request.getHeader("x-user-dm");
-        String groupId = request.getHeader("x-user-js");
-        String encodedUserName = request.getHeader("x-user-realname");
-        String name = encodedUserName != null
-                ? URLDecoder.decode(encodedUserName, StandardCharsets.UTF_8)
-                : null;
-
-        if (dm == null || dm.isEmpty()) {
-            dm = getDm;
-        }
-        if (groupId == null || groupId.isEmpty()) {
-            groupId = getGroupId;
-        }
-        if (name == null || name.isEmpty()) {
-            name = getName;
-        }
-
-        System.out.println("审核操作用户信息 - 用户名: " + name + ", 用户代码: " + dm + ", 角色ID: " + groupId);
-
-        if (dm == null || dm.isEmpty() || groupId == null || groupId.isEmpty() || name == null || name.isEmpty()) {
-            return Result.error("无法获取审核人信息，请确保请求头中包含用户信息");
-        }
-
-        UserInfo currentUser = new UserInfo();
-        currentUser.setDm(dm);
-        currentUser.setGroupId(groupId);
-        currentUser.setName(name);
+        UserContext.UserInfo currentUser = UserContext.get();
 
         statusChangeService.auditApplication(kjydjlbs, dto, currentUser);
         return Result.success("审核操作成功");

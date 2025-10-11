@@ -1,11 +1,11 @@
 package edu.qhjy.statuschange.service;
 
 import com.github.pagehelper.PageInfo;
+import edu.qhjy.aop.UserContext;
 import edu.qhjy.statuschange.dto.*;
 import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
 import edu.qhjy.statuschange.dto.audit.ResumptionUpdateDTO;
 import edu.qhjy.statuschange.dto.audit.TransUpdateDTO;
-import edu.qhjy.statuschange.dto.audit.UserInfo;
 import edu.qhjy.statuschange.vo.*;
 
 import java.util.List;
@@ -79,5 +79,5 @@ public interface StatusChangeService {
     List<StatusChangeVO> getStatusChangeListByKsh(String ksh);
 
     // --- 审核相关接口 ---
-    void auditApplication(Long kjydjlbs, AuditRequestDTO dto, UserInfo currentUser);
+    void auditApplication(Long kjydjlbs, AuditRequestDTO dto, UserContext.UserInfo currentUser);
 }

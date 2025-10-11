@@ -23,4 +23,6 @@ public class AbroadListVO implements Serializable {
     private String mz;
     private String xb;
     private String zbmc;
+
+    private String kslx;       // 考生类型
 }

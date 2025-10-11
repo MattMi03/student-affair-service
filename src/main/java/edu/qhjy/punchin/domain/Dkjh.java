@@ -12,4 +12,5 @@ public class Dkjh {
     private LocalDate xqjzrq;
     private String xxdm;
     private String shzt;
+    private String cjrxm;
 }

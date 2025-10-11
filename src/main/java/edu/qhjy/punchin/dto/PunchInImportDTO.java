@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Data
 public class PunchInImportDTO {
     @NotBlank(message = "考籍号不能为空")
-    private String ksh;
+    private String sfzjh;
 
     @NotNull(message = "打卡日期不能为空")
     private LocalDate dkrq;
@@ -22,6 +22,6 @@ public class PunchInImportDTO {
     @NotNull(message = "打卡时间不能为空")
     private LocalDateTime dksj;
 
-    private String dkdd;
+    private String dkfs;
     private String dksb;
 }

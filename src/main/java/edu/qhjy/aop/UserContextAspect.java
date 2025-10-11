@@ -10,6 +10,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+
 @Aspect
 @Component
 public class UserContextAspect {
@@ -20,10 +24,13 @@ public class UserContextAspect {
 
     @Before("controllerPointcut()")
     public void beforeController() {
-        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        HttpServletRequest request = ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
         String userId = request.getHeader("X-User-Id");
         String username = request.getHeader("X-User-UserName");
         String realName = request.getHeader("X-User-RealName");
+        if (realName != null) {
+            realName = URLDecoder.decode(realName, StandardCharsets.UTF_8);
+        }
         String userType = request.getHeader("X-User-Type");
         String js = request.getHeader("X-User-JS");
         String dm = request.getHeader("X-User-DM");

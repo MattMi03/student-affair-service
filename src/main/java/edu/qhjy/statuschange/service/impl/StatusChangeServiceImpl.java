@@ -2,12 +2,15 @@ package edu.qhjy.statuschange.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import edu.qhjy.aop.UserContext;
 import edu.qhjy.statuschange.domain.*;
 import edu.qhjy.statuschange.dto.*;
-import edu.qhjy.statuschange.dto.audit.*;
+import edu.qhjy.statuschange.dto.audit.AuditRequestDTO;
+import edu.qhjy.statuschange.dto.audit.ResumptionUpdateDTO;
+import edu.qhjy.statuschange.dto.audit.TransUpdateDTO;
+import edu.qhjy.statuschange.dto.audit.WorkflowResultDTO;
 import edu.qhjy.statuschange.dto.delete.KjydjlRecordDTO;
 import edu.qhjy.statuschange.handler.IStatusChangeHandler;
-import edu.qhjy.statuschange.mapper.KsxxMapper;
 import edu.qhjy.statuschange.mapper.StatusChangeMapper;
 import edu.qhjy.statuschange.service.IWorkflowService;
 import edu.qhjy.statuschange.service.StatusChangeService;
@@ -17,6 +20,9 @@ import edu.qhjy.student.dto.registeration.RegistrationInfoDTO;
 import edu.qhjy.student.dto.registeration.StudentInfoDTO;
 import edu.qhjy.student.mapper.ClassManagerMapper;
 import edu.qhjy.student.service.StudentRegistrationService;
+import edu.qhjy.util.IdCardUtils;
+import edu.qhjy.util.cache.DictCacheUtil;
+import edu.qhjy.util.constants.DictTypeConstants;
 import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +45,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     private final StatusChangeMapper statusChangeMapper;
     private final StudentRegistrationService studentRegistrationService;
     private final ClassManagerMapper classManagerMapper;
+    private final DictCacheUtil dictCacheUtil;
 
     /**
      * 审核相关实现
@@ -47,13 +54,27 @@ public class StatusChangeServiceImpl implements StatusChangeService {
      */
     private final IWorkflowService workflowService; // 【注入】通用工作流服务
     private final List<IStatusChangeHandler> handlers;
-    private final KsxxMapper ksxxMapper;
     private Map<Long, IStatusChangeHandler> handlerMap;
+
+    private void applyUserPermission(Object queryDTO) {
+        UserContext.UserInfo user = UserContext.get();
+        System.out.println("当前用户信息: " + user);
+        if (user != null && user.getDm() != null) {
+            if (queryDTO instanceof CommonQueryDTO dto) {
+                dto.setPermissionDm(user.getDm());
+            } else if (queryDTO instanceof BasicInfoQueryDTO dto) {
+                dto.setPermissionDm(user.getDm());
+            } else if (queryDTO instanceof SummaryQueryDTO dto) {
+                dto.setPermissionDm(user.getDm());
+            }
+        }
+    }
 
     @Override
     public PageInfo<StudentBasicInfoVO> getBasicInfo(BasicInfoQueryDTO basicInfoQueryDTO) {
         // 在查询前设置分页信息
         // pageNum：页码，pageSize：每页大小
+        applyUserPermission(basicInfoQueryDTO);
         PageHelper.startPage(basicInfoQueryDTO.getPageNum(), basicInfoQueryDTO.getPageSize());
 
         List<StudentBasicInfoVO> studentInfo = statusChangeMapper.getBasicInfoByKsh(basicInfoQueryDTO);
@@ -98,6 +119,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<LateRegistrationListVO> listLateRegistrations(CommonQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<LateRegistrationListVO> list = statusChangeMapper.selectLateRegistrationList(queryDTO);
         return new PageInfo<>(list);
@@ -106,6 +128,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     //    休学相关实现
     @Override
     public PageInfo<LeaveAuditListVO> getSuspension(CommonQueryDTO commonQueryDTO) {
+        applyUserPermission(commonQueryDTO);
         // 使用PageHelper进行分页查询
         PageHelper.startPage(commonQueryDTO.getPageNum(), commonQueryDTO.getPageSize());
 
@@ -191,6 +214,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<ReturnAuditListVO> listReturnApplications(CommonQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<ReturnAuditListVO> list = statusChangeMapper.selectReturnList(queryDTO);
         return new PageInfo<>(list);
@@ -314,6 +338,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<TransferAuditListVO> getTransfer(CommonQueryDTO commonQueryDTO, Long zxlx) {
+        applyUserPermission(commonQueryDTO);
         // 使用PageHelper进行分页查询
         PageHelper.startPage(commonQueryDTO.getPageNum(), commonQueryDTO.getPageSize());
 
@@ -386,6 +411,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<AttritionListVO> listAttritionApplications(CommonQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<AttritionListVO> list = statusChangeMapper.selectAttritionList(queryDTO);
         return new PageInfo<>(list);
@@ -451,6 +477,30 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     @Override
     @Transactional
     public void applyForKeyPropertyChange(KeyPropertyChangeApplyDTO applyDTO) {
+
+        if(applyDTO.getGgsxmc().equals("民族")){
+            if(dictCacheUtil.getCode(DictTypeConstants.MZ, applyDTO.getGhz())==null) {
+                throw new IllegalArgumentException("所选民族不存在，请核对后重新提交");
+            }
+        }else
+        if(applyDTO.getGgsxmc().equals("性别")){
+            if(!applyDTO.getGhz().equals("男") && !applyDTO.getGhz().equals("女")) {
+                throw new IllegalArgumentException("性别只能是“男”或“女”，请核对后重新提交");
+            }
+        }else
+        if(applyDTO.getGgsxmc().equals("姓名")){
+            if(applyDTO.getGhz().length()>10) {
+                throw new IllegalArgumentException("姓名长度过长，请核对后重新提交");
+            }
+        }else
+        if(applyDTO.getGgsxmc().equals("身份证号")){
+            if(!IdCardUtils.isValid(applyDTO.getGhz())) {
+                throw new IllegalArgumentException("身份证号码格式不正确，请核对后重新提交");
+            }
+        }else {
+            throw new IllegalArgumentException("非法的变更属性，请核对后重新提交");
+        }
+
         // 1. 创建总表记录
         // 假设“关键属性修改”在 kjydlx 表中的ID为 6L
         Long kjydjlbs = insertKjydjl(applyDTO.getStudentBasicInfoDTO(), 3L);
@@ -468,6 +518,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<KeyPropertyChangeListVO> listKeyPropertyChangeApps(CommonQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<KeyPropertyChangeListVO> list = statusChangeMapper.selectKeyPropertyChangeList(queryDTO);
         return new PageInfo<>(list);
@@ -475,6 +526,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<AbroadListVO> listAbroadApplications(CommonQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<AbroadListVO> abroadList = statusChangeMapper.selectAbroadList(queryDTO);
         return new PageInfo<>(abroadList);
@@ -531,6 +583,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
     // 统计相关实现
     @Override
     public PageInfo<InformationChangeSummaryVO> listInformationChangeSummary(CommonQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<InformationChangeSummaryVO> list = statusChangeMapper.selectInformationChangeSummary(queryDTO);
         return new PageInfo<>(list);
@@ -538,6 +591,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     public PageInfo<InformationChangeSummaryBySchoolVO> listInformationChangeSummaryBySchool(SummaryQueryDTO queryDTO) {
+        applyUserPermission(queryDTO);
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<InformationChangeSummaryBySchoolVO> list = statusChangeMapper.selectInformationChangeSummaryBySchool(queryDTO);
         return new PageInfo<>(list);
@@ -564,7 +618,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
 
     @Override
     @Transactional
-    public void auditApplication(Long kjydjlbs, AuditRequestDTO dto, UserInfo currentUser) {
+    public void auditApplication(Long kjydjlbs, AuditRequestDTO dto, UserContext.UserInfo currentUser) {
         // 1. 获取业务对象
         Kjydjl application = statusChangeMapper.findKjydjlById(kjydjlbs);
         if (application == null) {
@@ -574,21 +628,21 @@ public class StatusChangeServiceImpl implements StatusChangeService {
             throw new IllegalStateException("该申请已被处理，无法重复审核");
         }
 
-        // 检查是否是复学申请
-        if (application.getKjydlxbs() == 2L) { // 2L = 复学
-            // 如果是复学申请，并且是“通过”操作，则必须校验新年级和新班级是否已填写
-            if ("通过".equals(dto.getDecision())) {
-                Xfxjl resumptionDetail = statusChangeMapper.findXfxjlByKjydjlbs(kjydjlbs);
-                if (resumptionDetail == null ||
-                        resumptionDetail.getXbjmc() == null || resumptionDetail.getXbjmc().isEmpty() ||
-                        resumptionDetail.getXjdnj() == null || resumptionDetail.getXjdnj().isEmpty() ||
-                        resumptionDetail.getXbjbs() == null) {
-
-                    // 如果信息不完整，则抛出异常，阻止审核继续
-                    throw new IllegalStateException("审核无法通过：请先为该复学申请补充“新年级”和“新班级”信息。");
-                }
-            }
-        }
+//        // 检查是否是复学申请
+//        if (application.getKjydlxbs() == 2L) { // 2L = 复学
+//            // 如果是复学申请，并且是“通过”操作，则必须校验新年级和新班级是否已填写
+//            if ("通过".equals(dto.getDecision())) {
+//                Xfxjl resumptionDetail = statusChangeMapper.findXfxjlByKjydjlbs(kjydjlbs);
+//                if (resumptionDetail == null ||
+//                        resumptionDetail.getXbjmc() == null || resumptionDetail.getXbjmc().isEmpty() ||
+//                        resumptionDetail.getXjdnj() == null || resumptionDetail.getXjdnj().isEmpty() ||
+//                        resumptionDetail.getXbjbs() == null) {
+//
+//                    // 如果信息不完整，则抛出异常，阻止审核继续
+//                    throw new IllegalStateException("审核无法通过：请先为该复学申请补充“新年级”和“新班级”信息。");
+//                }
+//            }
+//        }
 
         String tableName = "";
         if (application.getKjydlxbs() == 1L) {
@@ -632,7 +686,7 @@ public class StatusChangeServiceImpl implements StatusChangeService {
         }
 
         // 4. 更新公共审核信息并持久化 (逻辑不变)
-        application.setShrxm(currentUser.getName());
+        application.setShrxm(currentUser.getRealName());
         application.setShyj(dto.getComments());
         application.setShsj(LocalDateTime.now());
         statusChangeMapper.updateAuditInfo(application);

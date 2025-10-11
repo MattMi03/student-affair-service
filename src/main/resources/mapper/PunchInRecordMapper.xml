@@ -61,23 +61,17 @@
         AND dates.PUNCH_DATE BETWEEN qjjl.KSRQ AND qjjl.JSRQ
         AND qjjl.SHZT = '通过'
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND plan.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+
             AND dates.PUNCH_DATE &lt;= CURDATE()
             AND ks.KJZTMC = '正常在校'
-            <if test="xnmc != null and xnmc != ''">
-                AND plan.XNMC = #{xnmc}
-            </if>
-            <if test="xxdm != null and xxdm != ''">
-                AND plan.XXDM = #{xxdm}
-            </if>
-            <if test="(xxdm == null or xxdm == '') and kqdm != null and kqdm != ''">
-                AND area.DM = #{kqdm} -- [REFACTORED]
-            </if>
-            <if test="jb != null and jb != ''">
-                AND ks.JB = #{jb}
-            </if>
-            <if test="bjbs != null">
-                AND ks.BJBS = #{bjbs}
-            </if>
+            <if test="xnmc != null and xnmc != ''">AND plan.XNMC = #{xnmc}</if>
+            <if test="xxdm != null and xxdm != ''">AND plan.XXDM = #{xxdm}</if>
+            <if test="(xxdm == null or xxdm == '') and kqdm != null and kqdm != ''">AND area.DM = #{kqdm}</if>
+            <if test="jb != null and jb != ''">AND ks.JB = #{jb}</if>
+            <if test="bjbs != null">AND ks.BJBS = #{bjbs}</if>
         </where>
         ORDER BY dates.PUNCH_DATE, ks.KSH
     </select>
@@ -134,21 +128,15 @@
         LEFT JOIN XYZDK area ON area.DM = SUBSTR(school.DM, 1, 2) AND area.JH = 'KD'
         -- [REFACTORED] END
         <where>
-            <if test="xnmc != null and xnmc != ''">
-                AND d.XNMC = #{xnmc}
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND s.XXDM LIKE CONCAT(#{permissionDm}, '%')
             </if>
-            <if test="kqdm != null and kqdm != ''">
-                AND area.DM = #{kqdm} -- [REFACTORED]
-            </if>
-            <if test="xxdm != null and xxdm != ''">
-                AND school.DM = #{xxdm} -- [REFACTORED]
-            </if>
-            <if test="jb != null">
-                AND s.JB = #{jb}
-            </if>
-            <if test="bjbs != null">
-                AND s.BJBS = #{bjbs}
-            </if>
+
+            <if test="xnmc != null and xnmc != ''">AND d.XNMC = #{xnmc}</if>
+            <if test="kqdm != null and kqdm != ''">AND area.DM = #{kqdm}</if>
+            <if test="xxdm != null and xxdm != ''">AND school.DM = #{xxdm}</if>
+            <if test="jb != null">AND s.JB = #{jb}</if>
+            <if test="bjbs != null">AND s.BJBS = #{bjbs}</if>
         </where>
         ORDER BY q.SQSJ DESC
     </select>
@@ -188,27 +176,24 @@
         WITH
         daily_stats AS (
         SELECT
-        ks.JB,
-        plan.XNMC,
-        school.DM AS XXDM,
-        school.MC AS XXMC,
-        area.MC AS KQMC,
+        ks.JB, plan.XNMC, school.DM AS XXDM, school.MC AS XXMC, area.MC AS KQMC,
         SUM(CASE WHEN dkjl.DKJLBS IS NOT NULL THEN 1 ELSE 0 END) AS attendance_person_days,
         COUNT(ks.KSH) AS total_person_days
         FROM
-        (
-        SELECT KSH, JB, XXMC, BJBS FROM ksxx WHERE KJZTMC = '正常在校'
+        ( SELECT KSH, JB, XXMC, BJBS, XXDM FROM ksxx WHERE KJZTMC = '正常在校'
         <if test="jb != null and jb != ''">AND JB = #{jb}</if>
         <if test="bjbs != null">AND BJBS = #{bjbs}</if>
         ) ks
-        JOIN XYZDK school ON ks.XXMC = school.MC AND school.JH = 'ZX'
-        LEFT JOIN XYZDK area ON area.DM = SUBSTR(school.DM, 1, 2) AND area.JH = 'KD'
+        JOIN XYZDK school ON ks.XXDM = school.DM AND school.JH = 'ZX'
+        LEFT JOIN XYZDK area ON SUBSTR(school.DM, 1, 2) = area.DM AND area.JH = 'KD'
         JOIN dkjh plan ON school.DM = plan.XXDM
         JOIN dkjh_dates dates ON plan.DKJHBS = dates.DKJHBS
         LEFT JOIN dkjl ON ks.KSH = dkjl.KSH AND dates.PUNCH_DATE = dkjl.DKRQ AND plan.DKJHBS = dkjl.DKJHBS
-        -- [CORRECTED] 将所有筛选条件移入WHERE子句
         <where>
-            dates.PUNCH_DATE &lt;= CURDATE()
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND school.DM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+            AND dates.PUNCH_DATE &lt;= CURDATE()
             <if test="xxdm != null and xxdm != ''">
                 AND school.DM = #{xxdm}
             </if>
@@ -223,22 +208,21 @@
         ),
         leave_stats AS (
         SELECT
-        ks.JB,
-        plan.XNMC,
-        school.DM AS XXDM,
+        ks.JB, plan.XNMC, school.DM AS XXDM,
         COUNT(DISTINCT qjjl.QJJLBS) as leave_request_count
         FROM
-        (
-        SELECT KSH, JB, XXMC, BJBS FROM ksxx WHERE KJZTMC = '正常在校'
+        ( SELECT KSH, JB, XXMC, BJBS, XXDM FROM ksxx WHERE KJZTMC = '正常在校'
         <if test="jb != null and jb != ''">AND JB = #{jb}</if>
         <if test="bjbs != null">AND BJBS = #{bjbs}</if>
         ) ks
-        JOIN XYZDK school ON ks.XXMC = school.MC AND school.JH = 'ZX'
+        JOIN XYZDK school ON ks.XXDM = school.DM AND school.JH = 'ZX'
         JOIN dkjh plan ON school.DM = plan.XXDM
         JOIN qjjl ON ks.KSH = qjjl.KSH AND plan.DKJHBS = qjjl.DKJHBS
-        -- [CORRECTED] 将所有筛选条件移入WHERE子句
         <where>
-            qjjl.SHZT = '通过'
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND school.DM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
+            AND qjjl.SHZT = '通过'
             <if test="xxdm != null and xxdm != ''">
                 AND school.DM = #{xxdm}
             </if>

@@ -27,4 +27,5 @@ public class ClassVO implements Serializable {
     private String bjlx;
     private String ysyz;
     private String mzyyskyz;
+    private Integer bjrs;
 }

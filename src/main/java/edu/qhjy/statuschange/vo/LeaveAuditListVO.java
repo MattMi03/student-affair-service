@@ -73,6 +73,10 @@ public class LeaveAuditListVO implements Serializable {
 
     private String shjd;          // 审核节点
 
+    private String shrxm;        // 审核人姓名
+
+    private LocalDateTime shsj;    // 更新时间
+
     /**
      * 审核意见
      */
@@ -91,4 +95,6 @@ public class LeaveAuditListVO implements Serializable {
     private String zbmc;
 
     private String yyzmwjdz; // 医院证明文件地址
+
+    private String kslx;       // 考生类型
 }

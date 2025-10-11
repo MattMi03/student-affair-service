@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class LateRegistrationListVO implements Serializable {
@@ -21,6 +22,9 @@ public class LateRegistrationListVO implements Serializable {
     private String shjd;          // 审核节点
     private String shzt;        // 审核状态
     private String shyj;        // 审核意见
+    private String shrxm;        // 审核人姓名
+    private LocalDateTime shsj;    // 更新时间
+    private String kslx;       // 考生类型
     private String mz;
     private String xb;
     private String zbmc;

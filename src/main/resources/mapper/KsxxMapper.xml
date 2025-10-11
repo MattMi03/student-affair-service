@@ -8,7 +8,7 @@
     </resultMap>
 
     <select id="findStudentLocationByKsh" resultMap="StudentLocationResultMap">
-        SELECT DM AS schoolCode
+        SELECT XXDM AS schoolCode
         FROM ksxx
         WHERE KSH = #{ksh}
         LIMIT 1

@@ -5,15 +5,19 @@ import edu.qhjy.student.dto.registeration.AdminStatisticsQueryDTO;
 import edu.qhjy.student.dto.registeration.AdminStudentQueryDTO;
 import edu.qhjy.student.dto.registeration.AuditRequestDTO;
 import edu.qhjy.student.dto.registeration.RegistrationInfoDTO;
+import edu.qhjy.student.vo.ImportResultVO;
 import edu.qhjy.student.vo.StatisticsVO;
 import edu.qhjy.student.vo.StudentListVO;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 public interface StudentRegistrationService {
 
     // ---- 管理员方法 ----
 
     /**
-     * 【新增】根据复杂条件分页查询学生列表 (供管理员使用)
+     * 根据复杂条件分页查询学生列表 (供管理员使用)
      */
     PageInfo<StudentListVO> listStudentsByPage(AdminStudentQueryDTO queryDTO);
 
@@ -61,5 +65,10 @@ public interface StudentRegistrationService {
      * 考生自己更新报名信息
      */
     void updateRegistrationByStudent(String ksh, RegistrationInfoDTO registrationInfo);
+
+
+    byte[] generateExcelTemplate();
+
+    ImportResultVO importFromExcel(MultipartFile file) throws IOException;
 
 }

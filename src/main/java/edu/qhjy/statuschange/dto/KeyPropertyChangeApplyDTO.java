@@ -20,6 +20,7 @@ public class KeyPropertyChangeApplyDTO implements Serializable {
     /**
      * 变更事项名称
      */
+
     private String ggsxmc;
 
     /**

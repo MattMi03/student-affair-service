@@ -47,6 +47,9 @@
         LEFT JOIN XYZDK area ON SUBSTR(school.DM, 1, 2) = area.DM AND area.JH = 'KD'
         LEFT JOIN XYZDK city ON SUBSTR(school.DM, 1, 1) = city.DM AND city.JH = 'KQ'
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             <if test="ksh != null and ksh != ''">AND ks.KSH = #{ksh}</if>
             <if test="sfzjh != null and sfzjh != ''">AND ks.SFZJH = #{sfzjh}</if>
             <if test="xm != null and xm != ''">AND ks.XM LIKE CONCAT('%', #{xm}, '%')</if>
@@ -91,6 +94,9 @@
         LEFT JOIN XYZDK area ON SUBSTR(school.DM, 1, 2) = area.DM AND area.JH = 'KD'
         LEFT JOIN XYZDK city ON SUBSTR(school.DM, 1, 1) = city.DM AND city.JH = 'KQ'
         <where>
+            <if test="permissionDm != null and permissionDm != '' and permissionDm != 'qhs'">
+                AND ks.XXDM LIKE CONCAT(#{permissionDm}, '%')
+            </if>
             <if test="jb != null and jb != ''">
                 AND b.jb = #{jb}
             </if>
@@ -265,10 +271,53 @@
         WHERE KSH = #{ksh}
     </delete>
 
-    <select id="findIfSchoolExistBySchoolName" resultType="int">
-        SELECT COUNT(1)
+    <select id="findSchoolDmsByNames" resultType="map" parameterType="list">
+        SELECT MC AS name, DM
         FROM XYZDK
-        WHERE MC = #{xxmc}
-          AND JH = 'ZX'
+        WHERE JH = 'ZX' AND MC IN
+        <foreach collection="list" item="name" open="(" separator="," close=")">
+            #{name}
+        </foreach>
+    </select>
+
+    <select id="findExistingKshs" resultType="java.lang.String">
+        SELECT KSH FROM ksxx WHERE KSH IN
+        <foreach collection="list" item="ksh" open="(" separator="," close=")">
+            #{ksh}
+        </foreach>
+    </select>
+
+    <insert id="batchInsertStudents">
+        INSERT INTO ksxx (XXDM, SFZJH, KSH, XJH, XM, XB, MZ, CSRQ, SZSMC, SZXMC, KQMC, XXMC, JB, BJBS, BJMC, KJZTMC,
+        SHZT /*, ... 其他字段 ... */)
+        VALUES
+        <foreach collection="list" item="s" separator=",">
+            (#{s.xxdm},#{s.sfzjh}, #{s.ksh}, #{s.xjh}, #{s.xm}, #{s.xb}, #{s.mz}, #{s.csrq}, #{s.szsmc}, #{s.szxmc},
+            #{s.kqmc}, #{s.xxmc}, #{s.jb}, #{s.bjbs}, #{s.bjmc}, #{s.kjztmc}, #{s.shzt} /*, ... 其他值 ... */)
+        </foreach>
+    </insert>
+
+    <insert id="batchInsertGuardians">
+        INSERT INTO jhrxx (KSH, GX, XM, SFZJH, MZ, YDDH, GZDWMC, GZDWZW, SZQMC, SZSMC, SZXMC)
+        VALUES
+        <foreach collection="list" item="g" separator=",">
+            (#{g.ksh}, #{g.gx}, #{g.xm}, #{g.sfzjh}, #{g.mz}, #{g.yddh}, #{g.gzdwmc}, #{g.gzdwzw}, #{g.szqmc},
+            #{g.szsmc}, #{g.szxmc})
+        </foreach>
+    </insert>
+
+    <insert id="batchInsertAcademicHistories">
+        INSERT INTO xlxx (KSH, XL, KSRQ, JZRQ, XXMC, ZMRXM)
+        VALUES
+        <foreach collection="list" item="h" separator=",">
+            (#{h.ksh}, #{h.xl}, #{h.ksrq}, #{h.jzrq}, #{h.xxmc}, #{h.zmrxm})
+        </foreach>
+    </insert>
+
+    <select id="findExistingSfzjhs" resultType="java.lang.String">
+        SELECT SFZJH FROM ksxx WHERE SFZJH IN
+        <foreach collection="list" item="sfzjh" open="(" separator="," close=")">
+            #{sfzjh}
+        </foreach>
     </select>
 </mapper>

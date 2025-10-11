@@ -35,4 +35,10 @@ public class ReturnAuditListVO implements Serializable {
     private String shzt;        // 审核状态
     private String shyj;        // 审核意见
 
+    private String shrxm;        // 审核人姓名
+
+    private LocalDateTime shsj;    // 更新时间
+
+    private String kslx;       // 考生类型
+
 }

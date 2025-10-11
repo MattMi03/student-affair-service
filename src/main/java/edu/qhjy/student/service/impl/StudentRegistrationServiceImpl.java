@@ -1,7 +1,9 @@
 package edu.qhjy.student.service.impl;
 
+import com.alibaba.excel.EasyExcel;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import edu.qhjy.aop.UserContext;
 import edu.qhjy.student.domain.Bjxx;
 import edu.qhjy.student.domain.Jhrxx;
 import edu.qhjy.student.domain.Ksxx;
@@ -10,10 +12,13 @@ import edu.qhjy.student.dto.registeration.*;
 import edu.qhjy.student.mapper.ClassManagerMapper;
 import edu.qhjy.student.mapper.StudentRegistrationMapper;
 import edu.qhjy.student.service.StudentRegistrationService;
+import edu.qhjy.student.vo.ImportResultVO;
 import edu.qhjy.student.vo.StatisticsVO;
 import edu.qhjy.student.vo.StudentListVO;
 import edu.qhjy.util.IdCardUtils;
 import edu.qhjy.util.MobileValidator;
+import edu.qhjy.util.cache.DictCacheUtil;
+import edu.qhjy.util.constants.DictTypeConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +26,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -34,21 +44,28 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     private final StudentRegistrationMapper registrationMapper;
     private final ClassManagerMapper classManagerMapper;
     private final Executor ioTaskExecutor;
+    private final DictCacheUtil dictCacheUtil;
 
     @Autowired
     public StudentRegistrationServiceImpl(
             StudentRegistrationMapper registrationMapper,
             ClassManagerMapper classManagerMapper,
-            @Qualifier("ioTaskExecutor") Executor ioTaskExecutor) {
+            @Qualifier("ioTaskExecutor") Executor ioTaskExecutor, DictCacheUtil dictCacheUtil) {
         this.registrationMapper = registrationMapper;
         this.ioTaskExecutor = ioTaskExecutor;
         this.classManagerMapper = classManagerMapper;
+        this.dictCacheUtil = dictCacheUtil;
     }
 
 
     // ====== 管理员实现 (无需修改) ======
     @Override
     public PageInfo<StudentListVO> listStudentsByPage(AdminStudentQueryDTO queryDTO) {
+        UserContext.UserInfo user = UserContext.get();
+        if (user != null && user.getDm() != null) {
+            String permissionDm = user.getDm();
+            queryDTO.setPermissionDm(permissionDm);
+        }
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<StudentListVO> list = registrationMapper.selectStudentList(queryDTO);
         return new PageInfo<>(list);
@@ -99,6 +116,11 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
 
     @Override
     public PageInfo<StatisticsVO> statistics(AdminStatisticsQueryDTO queryDTO) {
+        UserContext.UserInfo user = UserContext.get();
+        if (user != null && user.getDm() != null) {
+            String permissionDm = user.getDm();
+            queryDTO.setPermissionDm(permissionDm);
+        }
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<StatisticsVO> statisticsList = registrationMapper.selectStatistics(queryDTO);
         return new PageInfo<>(statisticsList);
@@ -180,7 +202,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     /**
      * [REFACTORED] 已重构，增加根据学校名称查询并设置xxdm的逻辑
      */
-    private void createRegistration(RegistrationInfoDTO registrationInfo) {
+    public void createRegistration(RegistrationInfoDTO registrationInfo) {
         StudentInfoDTO studentInfo = registrationInfo.getStudentInfo();
         if (studentInfo == null || studentInfo.getKsh() == null || studentInfo.getKsh().isEmpty()) {
             throw new IllegalArgumentException("考生基本信息或考生号(ksh)不能为空");
@@ -350,5 +372,168 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         AcademicHistoryDTO dto = new AcademicHistoryDTO();
         BeanUtils.copyProperties(entity, dto);
         return dto;
+    }
+
+
+    /**
+     * [REFACTORED] 使用 EasyExcel 生成模板
+     */
+    @Override
+    public byte[] generateExcelTemplate() {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            EasyExcel.write(out, StudentImportData.class)
+                    .sheet("学生信息批量导入模板")
+                    .doWrite(new ArrayList<>());
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.error("使用EasyExcel生成模板失败", e);
+            throw new RuntimeException("生成Excel模板失败", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public ImportResultVO importFromExcel(MultipartFile file) throws IOException {
+        // 使用我们重构后的、有状态的监听器
+        StudentImportListener listener = new StudentImportListener(this);
+        EasyExcel.read(file.getInputStream(), StudentImportData.class, listener).sheet().doRead();
+
+        List<RegistrationInfoDTO> registrationInfos = listener.getRegistrationList();
+
+        // 调用新的批量处理方法
+        return bulkCreateRegistrations(registrationInfos);
+    }
+
+    @Transactional
+    public ImportResultVO bulkCreateRegistrations(List<RegistrationInfoDTO> registrationInfos) {
+        List<String> errorMessages = new ArrayList<>();
+        List<String> warningMessages = new ArrayList<>();
+        int successCount = 0;
+
+        if (registrationInfos.isEmpty()) {
+            return ImportResultVO.builder().totalRows(0).successCount(0).failureCount(0)
+                    .errorMessages(errorMessages).warningMessages(warningMessages).build();
+        }
+
+        // --- 预处理和校验 ---
+        List<String> schoolNames = registrationInfos.stream().map(r -> r.getStudentInfo().getXxmc()).distinct().toList();
+        List<Map<String, Object>> schoolDmResultList = registrationMapper.findSchoolDmsByNames(schoolNames);
+        Map<String, String> schoolNameToDmMap = schoolDmResultList.stream()
+                .filter(m -> m.get("name") != null && m.get("DM") != null)
+                .collect(Collectors.toMap(
+                        m -> ((String) m.get("name")).trim(),
+                        m -> ((String) m.get("DM")).trim(),
+                        (v1, v2) -> v1
+                ));
+
+        List<String> sfzjhList = registrationInfos.stream().map(r -> r.getStudentInfo().getSfzjh()).toList();
+        Set<String> existingSfzjhSet = new HashSet<>(registrationMapper.findExistingSfzjhs(sfzjhList));
+
+        List<Map<String, String>> schoolClassPairs = registrationInfos.stream()
+                .map(dto -> {
+                    String schoolDm = schoolNameToDmMap.get(dto.getStudentInfo().getXxmc());
+                    if (schoolDm != null && StringUtils.hasText(dto.getStudentInfo().getBjmc())) {
+                        return Map.of("xxdm", schoolDm, "bjmc", dto.getStudentInfo().getBjmc());
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<String, Bjxx> classLookupMap = new HashMap<>();
+        if (!schoolClassPairs.isEmpty()) {
+            List<Bjxx> existingClasses = classManagerMapper.findClassesBySchoolAndNameBatch(schoolClassPairs);
+            classLookupMap = existingClasses.stream()
+                    .collect(Collectors.toMap(b -> b.getXxdm() + "|" + b.getBjmc(), b -> b));
+        }
+
+        // --- 数据准备循环 (只在内存中操作) ---
+        List<Ksxx> studentsToInsert = new ArrayList<>();
+        List<Jhrxx> guardiansToInsert = new ArrayList<>();
+        List<Xlxx> historiesToInsert = new ArrayList<>();
+
+        for (int i = 0; i < registrationInfos.size(); i++) {
+            RegistrationInfoDTO dto = registrationInfos.get(i);
+            int rowNum = i + 1;
+            String studentNameForLog = (dto.getStudentInfo() != null) ? dto.getStudentInfo().getXm() : "未知姓名";
+
+            try {
+                StudentInfoDTO studentInfo = dto.getStudentInfo();
+                if (studentInfo == null) throw new IllegalArgumentException("学生基本信息不能为空");
+
+                String sfzjh = studentInfo.getSfzjh();
+
+                // 核心校验
+                if (!StringUtils.hasText(sfzjh) || !IdCardUtils.isValid(sfzjh)) {
+                    throw new IllegalArgumentException("身份证号不合法或为空");
+                }
+                if (existingSfzjhSet.contains(sfzjh)) {
+                    throw new IllegalStateException("身份证号 " + sfzjh + " 已存在");
+                }
+
+                String schoolDm = schoolNameToDmMap.get(studentInfo.getXxmc().trim());
+                if (schoolDm == null) {
+                    throw new IllegalArgumentException("学校名称 '" + studentInfo.getXxmc() + "' 不存在");
+                }
+
+                if (StringUtils.hasText(studentInfo.getBjmc())) {
+                    String classLookupKey = schoolDm + "|" + studentInfo.getBjmc();
+                    if (!classLookupMap.containsKey(classLookupKey)) {
+                        throw new IllegalArgumentException("班级 '" + studentInfo.getBjmc() + "' 在学校 '" + studentInfo.getXxmc() + "' 中不存在");
+                    }
+                    studentInfo.setBjbs(classLookupMap.get(classLookupKey).getBjbs());
+                }
+
+                if (dictCacheUtil.getName(DictTypeConstants.MZ, studentInfo.getMz()) == null) {
+                    throw new IllegalArgumentException("民族 '" + studentInfo.getMz() + "' 输入有误, 示例: 汉族");
+                }
+
+                // 自动修正并记录警告
+                String parsedGender = IdCardUtils.getGender(sfzjh);
+                if (StringUtils.hasText(studentInfo.getXb()) && !studentInfo.getXb().equals(parsedGender)) {
+                    warningMessages.add("第 " + rowNum + " 行: 学生“" + studentNameForLog + "”的性别与身份证不符，已自动修正");
+                }
+                studentInfo.setXb(parsedGender);
+
+                LocalDate parsedBirthday = IdCardUtils.getBirthday(sfzjh);
+                if (studentInfo.getCsrq() == null || !studentInfo.getCsrq().equals(parsedBirthday)) {
+                    warningMessages.add("第 " + rowNum + " 行: 学生“" + studentNameForLog + "”的出生日期与身份证不符，已自动修正");
+                }
+                studentInfo.setCsrq(parsedBirthday);
+
+                // 准备插入对象
+                Ksxx ksxx = convertToKsxx(studentInfo);
+                ksxx.setXxdm(schoolDm);
+                ksxx.setShzt("已提交待审核");
+                studentsToInsert.add(ksxx);
+
+                guardiansToInsert.addAll(dto.getGuardians().stream().map(g -> convertToJhrxx(g, ksxx.getKsh())).toList());
+                historiesToInsert.addAll(dto.getAcademicHistories().stream().map(h -> convertToXlxx(h, ksxx.getKsh())).toList());
+
+                successCount++;
+            } catch (Exception e) {
+                errorMessages.add("第 " + rowNum + " 行 (姓名: " + studentNameForLog + ") 处理失败: " + e.getMessage());
+            }
+        }
+
+        // --- 批量插入数据库 (在循环外执行) ---
+        if (!studentsToInsert.isEmpty()) {
+            registrationMapper.batchInsertStudents(studentsToInsert);
+        }
+        if (!guardiansToInsert.isEmpty()) {
+            registrationMapper.batchInsertGuardians(guardiansToInsert);
+        }
+        if (!historiesToInsert.isEmpty()) {
+            registrationMapper.batchInsertAcademicHistories(historiesToInsert);
+        }
+
+        return ImportResultVO.builder()
+                .totalRows(registrationInfos.size())
+                .successCount(successCount)
+                .failureCount(errorMessages.size())
+                .errorMessages(errorMessages)
+                .warningMessages(warningMessages)
+                .build();
     }
 }

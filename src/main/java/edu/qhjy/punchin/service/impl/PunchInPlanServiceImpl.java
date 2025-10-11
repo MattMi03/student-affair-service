@@ -2,6 +2,7 @@ package edu.qhjy.punchin.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import edu.qhjy.aop.UserContext;
 import edu.qhjy.punchin.domain.Dkjh;
 import edu.qhjy.punchin.dto.PunchInPlanQueryDTO;
 import edu.qhjy.punchin.dto.PunchInPlanSubmitDTO;
@@ -25,6 +26,12 @@ public class PunchInPlanServiceImpl implements PunchInPlanService {
 
     @Override
     public PageInfo<PunchInPlanListVO> listPlans(PunchInPlanQueryDTO query, int pageNum, int pageSize) {
+        UserContext.UserInfo user = UserContext.get();
+        if (user != null) {
+            String userDm = user.getDm();
+            query.setPermissionDm(userDm);
+        }
+
         PageHelper.startPage(pageNum, pageSize);
         List<PunchInPlanListVO> list = punchInPlanMapper.findForPage(query);
         return new PageInfo<>(list);
